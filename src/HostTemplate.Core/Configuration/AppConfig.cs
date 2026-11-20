@@ -5,6 +5,15 @@ using System.Xml.Serialization;
 namespace HostTemplate.Core.Configuration
 {
     /// <summary>
+    /// 主界面日间或夜间。默认夜间，和原来的深色界面一致。
+    /// </summary>
+    public enum UiThemeMode
+    {
+        夜间 = 0,
+        日间 = 1,
+    }
+
+    /// <summary>
     /// 站位类型。
     /// </summary>
     public enum StationPosition
@@ -73,6 +82,9 @@ namespace HostTemplate.Core.Configuration
 
         [Category("[权限]"), DisplayName("02.登录超时(分钟)"), Description("0 表示不自动锁屏")]
         public int SessionTimeoutMinutes { get; set; } = 0;
+
+        [Category("[界面]"), DisplayName("01.界面主题"), Description("主界面日间或夜间。主界面右上角的主题按钮会立即写回这里，下次启动保持。默认夜间。")]
+        public UiThemeMode Theme { get; set; } = UiThemeMode.夜间;
 
         [Browsable(false)]
         [XmlIgnore]
