@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
+using HostTemplate.App.Controls;
 using HostTemplate.Core.Runtime;
 using Sunny.UI;
 
@@ -10,10 +11,12 @@ namespace HostTemplate.App.Steps
     /// 示例工站的「实时数据」整页，不是模板契约。
     /// 大号 OK/NG、表格、曲线都只属于这个示例：没有行就藏表格，没有曲线就藏图。
     /// 视觉标注、多画面组合或其他布局，在 Program.cs 里换成自己的控件即可，不必使用 CycleLiveData。
+    /// 实现 <see cref="IMainThemeAware"/> 后会跟着主界面的日间/夜间走。
     /// </summary>
-    public sealed class DemoLiveView : UserControl
+    public sealed class DemoLiveView : UserControl, IMainThemeAware
     {
         private readonly CycleLiveData _live;
+        private MainTheme _theme = MainTheme.Night;
         private readonly Timer _timer;
         private readonly TableLayoutPanel _layout;
         private readonly Panel _verdictPanel;
@@ -90,6 +93,39 @@ namespace HostTemplate.App.Steps
             _timer.Tick += (s, e) => Flush();
             _timer.Start();
             Flush();
+        }
+
+        public void ApplyMainTheme(MainTheme theme)
+        {
+            _theme = theme ?? MainTheme.Night;
+            BackColor = _theme.PageBack;
+            _layout.BackColor = _theme.PageBack;
+            _chart.ChartStyleType = _theme.ChartStyle;
+            ApplyGridChrome();
+            Render(_live.Snapshot());
+        }
+
+        private void ApplyGridChrome()
+        {
+            _grid.Style = _theme.SunnyStyle;
+            _grid.StyleCustomMode = true;
+            _grid.BackgroundColor = _theme.GridBack;
+            _grid.GridColor = _theme.GridLine;
+            _grid.RectColor = _theme.GridLine;
+            _grid.ScrollBarColor = _theme.ScrollBar;
+            _grid.ScrollBarBackColor = _theme.ScrollTrack;
+            _grid.StripeEvenColor = _theme.GridBack;
+            _grid.StripeOddColor = _theme.GridStripe;
+            _grid.ColumnHeadersDefaultCellStyle.BackColor = _theme.GridHeaderBack;
+            _grid.ColumnHeadersDefaultCellStyle.ForeColor = _theme.GridHeaderFore;
+            _grid.ColumnHeadersDefaultCellStyle.SelectionBackColor = _theme.GridHeaderBack;
+            _grid.ColumnHeadersDefaultCellStyle.SelectionForeColor = _theme.GridHeaderFore;
+            _grid.DefaultCellStyle.BackColor = _theme.GridBack;
+            _grid.DefaultCellStyle.ForeColor = _theme.GridText;
+            _grid.DefaultCellStyle.SelectionBackColor = _theme.GridSelectBack;
+            _grid.DefaultCellStyle.SelectionForeColor = _theme.GridSelectFore;
+            _grid.RowsDefaultCellStyle.BackColor = _theme.GridBack;
+            _grid.RowsDefaultCellStyle.ForeColor = _theme.GridText;
         }
 
         private static UIDataGridView BuildGrid()
@@ -194,26 +230,26 @@ namespace HostTemplate.App.Steps
             switch (snapshot.Verdict)
             {
                 case ProductVerdict.Ok:
-                    _verdictPanel.BackColor = Color.FromArgb(6, 48, 32);
+                    _verdictPanel.BackColor = _theme.VerdictOkBack;
                     _lblVerdict.Text = "OK";
-                    _lblVerdict.ForeColor = Color.FromArgb(74, 222, 128);
-                    _lblReason.ForeColor = Color.FromArgb(187, 247, 208);
+                    _lblVerdict.ForeColor = _theme.VerdictOkFore;
+                    _lblReason.ForeColor = _theme.VerdictOkReason;
                     _lblReason.Text = Describe(snapshot, "本周期合格");
                     break;
 
                 case ProductVerdict.Ng:
-                    _verdictPanel.BackColor = Color.FromArgb(69, 10, 10);
+                    _verdictPanel.BackColor = _theme.VerdictNgBack;
                     _lblVerdict.Text = "NG";
-                    _lblVerdict.ForeColor = Color.FromArgb(248, 113, 113);
-                    _lblReason.ForeColor = Color.FromArgb(254, 202, 202);
+                    _lblVerdict.ForeColor = _theme.VerdictNgFore;
+                    _lblReason.ForeColor = _theme.VerdictNgReason;
                     _lblReason.Text = Describe(snapshot, "本周期不良");
                     break;
 
                 default:
-                    _verdictPanel.BackColor = Color.FromArgb(15, 23, 42);
+                    _verdictPanel.BackColor = _theme.VerdictIdleBack;
                     _lblVerdict.Text = "—";
-                    _lblVerdict.ForeColor = Color.FromArgb(107, 114, 128);
-                    _lblReason.ForeColor = Color.FromArgb(156, 163, 175);
+                    _lblVerdict.ForeColor = _theme.VerdictIdleFore;
+                    _lblReason.ForeColor = _theme.VerdictIdleReason;
                     _lblReason.Text = Describe(snapshot, "等待本周期结果");
                     break;
             }
@@ -238,9 +274,7 @@ namespace HostTemplate.App.Steps
             {
                 var index = _grid.AddRow(row.ItemName, row.Standard, row.Value, row.Passed ? "OK" : "NG");
                 var cell = _grid.Rows[index].Cells[3];
-                cell.Style.ForeColor = row.Passed
-                    ? Color.FromArgb(74, 222, 128)
-                    : Color.FromArgb(248, 113, 113);
+                cell.Style.ForeColor = row.Passed ? _theme.PassFore : _theme.FailFore;
                 cell.Style.Font = _resultFont;
                 cell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
             }

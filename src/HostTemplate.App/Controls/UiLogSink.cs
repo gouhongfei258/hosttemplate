@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 using HostTemplate.Core.Diagnostics;
@@ -16,7 +17,12 @@ namespace HostTemplate.App.Controls
 
         private readonly RichTextBox _target;
         private readonly ConcurrentQueue<LogEventArgs> _queue = new ConcurrentQueue<LogEventArgs>();
+        private readonly List<LogEventArgs> _history = new List<LogEventArgs>();
         private readonly Timer _timer;
+        private Color _info = Color.FromArgb(209, 213, 219);
+        private Color _warn = Color.FromArgb(251, 191, 36);
+        private Color _error = Color.FromArgb(248, 113, 113);
+        private Color _debug = Color.FromArgb(107, 114, 128);
 
         public UiLogSink(RichTextBox target, int flushIntervalMs = 200)
         {
@@ -25,6 +31,22 @@ namespace HostTemplate.App.Controls
             _timer = new Timer { Interval = Math.Max(50, flushIntervalMs) };
             _timer.Tick += (s, e) => Flush();
             _timer.Start();
+        }
+
+        /// <summary>换日间/夜间时重画已经显示的行，级别颜色跟着变。</summary>
+        public void ApplyColors(Color info, Color warn, Color error, Color debug)
+        {
+            _info = info;
+            _warn = warn;
+            _error = error;
+            _debug = debug;
+
+            if (_target.IsDisposed)
+            {
+                return;
+            }
+
+            Rebuild();
         }
 
         public void Enqueue(LogEventArgs args)
@@ -53,16 +75,26 @@ namespace HostTemplate.App.Controls
 
             try
             {
+                var rebuilt = false;
+
                 while (_queue.TryDequeue(out var item))
                 {
-                    Append(item);
+                    _history.Add(item);
+
+                    if (_history.Count > MaxLines)
+                    {
+                        _history.RemoveRange(0, _history.Count - MaxLines);
+                        rebuilt = true;
+                    }
+                    else
+                    {
+                        Write(item);
+                    }
                 }
 
-                while (_target.Lines.Length > MaxLines)
+                if (rebuilt)
                 {
-                    var keep = new string[MaxLines];
-                    Array.Copy(_target.Lines, _target.Lines.Length - MaxLines, keep, 0, MaxLines);
-                    _target.Lines = keep;
+                    Rebuild();
                 }
 
                 _target.SelectionStart = _target.TextLength;
@@ -74,15 +106,28 @@ namespace HostTemplate.App.Controls
             }
         }
 
-        private void Append(LogEventArgs item)
+        private void Rebuild()
+        {
+            _target.Clear();
+
+            foreach (var item in _history)
+            {
+                Write(item);
+            }
+
+            _target.SelectionStart = _target.TextLength;
+            _target.ScrollToCaret();
+        }
+
+        private void Write(LogEventArgs item)
         {
             var color = item.Level switch
             {
-                LogLevel.Error => Color.FromArgb(248, 113, 113),
-                LogLevel.Fatal => Color.FromArgb(248, 113, 113),
-                LogLevel.Warn => Color.FromArgb(251, 191, 36),
-                LogLevel.Debug => Color.FromArgb(107, 114, 128),
-                _ => Color.FromArgb(209, 213, 219),
+                LogLevel.Error => _error,
+                LogLevel.Fatal => _error,
+                LogLevel.Warn => _warn,
+                LogLevel.Debug => _debug,
+                _ => _info,
             };
 
             var start = _target.TextLength;
