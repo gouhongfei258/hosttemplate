@@ -6,10 +6,12 @@ using System.Windows.Forms;
 using HostTemplate.App.Controls;
 using HostTemplate.App.Forms;
 using HostTemplate.Core.Abstractions;
+using HostTemplate.Core.Configuration;
 using HostTemplate.Core.Diagnostics;
 using HostTemplate.Core.Flow;
 using HostTemplate.Core.Runtime;
 using HostTemplate.Core.Security;
+using Sunny.UI;
 
 namespace HostTemplate.App
 {
@@ -30,6 +32,7 @@ namespace HostTemplate.App
 
         private int _tick;
         private bool _apiChecking;
+        private MainTheme _theme = MainTheme.Night;
 
         /// <summary>窗口显示后自动开始监控（配合 --autostart 使用）。</summary>
         public bool AutoStart { get; set; }
@@ -64,6 +67,7 @@ namespace HostTemplate.App
             _context.Alarms.Changed += OnAlarmChanged;
 
             _alarmTip = new ToolTip();
+            ApplyTheme(MainTheme.For(_context.App.Theme));
 
             _refreshTimer = new Timer { Interval = 300 };
             _refreshTimer.Tick += (s, e) => RefreshState();
@@ -173,8 +177,8 @@ namespace HostTemplate.App
             if (active.Count == 0)
             {
                 ApplyAlarmBanner(
-                    System.Drawing.Color.FromArgb(17, 24, 39),
-                    System.Drawing.Color.FromArgb(74, 222, 128),
+                    _theme.AlarmIdleBack,
+                    _theme.AlarmIdleFore,
                     "无程序报警",
                     "当前没有程序报警");
                 return;
@@ -188,11 +192,100 @@ namespace HostTemplate.App
             }
 
             var text = "程序报警　" + string.Join("；", parts);
-            ApplyAlarmBanner(
-                System.Drawing.Color.FromArgb(127, 29, 29),
-                System.Drawing.Color.FromArgb(254, 242, 242),
-                text,
-                text);
+            ApplyAlarmBanner(_theme.AlarmActiveBack, _theme.AlarmActiveFore, text, text);
+        }
+
+        private void ApplyTheme(MainTheme theme)
+        {
+            _theme = theme ?? MainTheme.Night;
+
+            BackColor = _theme.WindowBack;
+            panelTop.BackColor = _theme.BarBack;
+            panelInfo.BackColor = _theme.StripBack;
+            panelBottom.BackColor = _theme.BarBack;
+
+            lblStation.ForeColor = _theme.TitleFore;
+            lblSub.ForeColor = _theme.SubFore;
+            lblWord.ForeColor = _theme.WordFore;
+            lblWordName.ForeColor = _theme.TitleFore;
+            lblSn.ForeColor = _theme.MutedFore;
+            lblTray.ForeColor = _theme.MutedFore;
+            lblStep.ForeColor = _theme.MutedFore;
+            lblCount.ForeColor = _theme.MutedFore;
+            lblHint.ForeColor = _theme.HintFore;
+            lblVersion.ForeColor = _theme.SubFore;
+
+            ApplyLight(lightPlc);
+            ApplyLight(lightApi);
+            ApplyLight(lightAlarm);
+            ApplyLight(lightRun);
+
+            pageRealtime.BackColor = _theme.PageBack;
+            pageLog.BackColor = _theme.PageBack;
+            rtbLog.BackColor = _theme.LogBack;
+            rtbLog.ForeColor = _theme.LogInfo;
+
+            // 先套 SunnyUI 的 Black / Blue，再写回本模板的配色，夜间不会被纯黑换掉。
+            tabMain.StyleCustomMode = false;
+            tabMain.Style = _theme.SunnyStyle;
+            tabMain.StyleCustomMode = true;
+            tabMain.FillColor = _theme.PageBack;
+            tabMain.TabBackColor = _theme.TabBack;
+            tabMain.TabSelectedColor = _theme.TabSelected;
+            tabMain.TabSelectedForeColor = _theme.TabSelectedFore;
+            tabMain.TabUnSelectedForeColor = _theme.TabUnselectedFore;
+            tabMain.TabSelectedHighColor = _theme.TabAccent;
+
+            PaintButton(btnStart, _theme.StartFill, System.Drawing.Color.White, _theme.StartFill);
+            PaintButton(btnStop, _theme.StopFill, System.Drawing.Color.White, _theme.StopFill);
+            PaintButton(btnReset, _theme.ButtonSecondaryFill, _theme.ButtonSecondaryFore, _theme.ButtonSecondaryRect);
+            PaintButton(btnConfig, _theme.ButtonSecondaryFill, _theme.ButtonSecondaryFore, _theme.ButtonSecondaryRect);
+            PaintButton(btnUser, _theme.ButtonSecondaryFill, _theme.ButtonSecondaryFore, _theme.ButtonSecondaryRect);
+            PaintButton(btnTheme, _theme.ThemeButtonFill, _theme.ThemeButtonFore, _theme.ThemeButtonRect);
+            btnTheme.Text = _theme.ThemeButtonText;
+            _alarmTip.SetToolTip(btnTheme, _theme.ThemeButtonTip);
+
+            _logSink.ApplyColors(_theme.LogInfo, _theme.LogWarn, _theme.LogError, _theme.LogDebug);
+
+            foreach (Control child in pageRealtime.Controls)
+            {
+                if (child is IMainThemeAware aware)
+                {
+                    aware.ApplyMainTheme(_theme);
+                }
+            }
+
+            RefreshAlarmBanner();
+            tabMain.Invalidate();
+        }
+
+        private void ApplyLight(StatusLight light)
+        {
+            light.ForeColor = _theme.LightFore;
+            light.InactiveColor = _theme.LightInactive;
+        }
+
+        private static void PaintButton(UIButton button, System.Drawing.Color fill, System.Drawing.Color fore, System.Drawing.Color rect)
+        {
+            button.StyleCustomMode = true;
+            button.FillColor = fill;
+            button.RectColor = rect;
+            button.ForeColor = fore;
+        }
+
+        private void BtnTheme_Click(object sender, EventArgs e)
+        {
+            var next = _context.App.Theme == UiThemeMode.夜间 ? UiThemeMode.日间 : UiThemeMode.夜间;
+            _context.App.Theme = next;
+            ApplyTheme(MainTheme.For(next));
+
+            if (!_context.Config.SaveApp(out var error))
+            {
+                _context.Logger.Warn("保存界面主题失败：" + error);
+                return;
+            }
+
+            _context.Logger.Info(next == UiThemeMode.夜间 ? "已切换为夜间界面。" : "已切换为日间界面。");
         }
 
         private void ApplyAlarmBanner(System.Drawing.Color back, System.Drawing.Color fore, string text, string tip)

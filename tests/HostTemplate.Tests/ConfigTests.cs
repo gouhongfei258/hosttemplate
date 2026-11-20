@@ -38,6 +38,7 @@ namespace HostTemplate.Tests
             Assert.True(File.Exists(manager.PlcPath));
             Assert.True(File.Exists(manager.ApiPath));
             Assert.Contains("默认值", message);
+            Assert.Equal(UiThemeMode.夜间, manager.App.Theme);
         }
 
         [Fact]
@@ -49,6 +50,7 @@ namespace HostTemplate.Tests
             manager.App.WorkStationName = "测试工站";
             manager.App.EquId = "OP999";
             manager.App.Simulate = true;
+            manager.App.Theme = UiThemeMode.日间;
             Assert.True(manager.SaveApp(out var error), error);
 
             var reloaded = new ConfigManager(_tempDirectory);
@@ -57,6 +59,7 @@ namespace HostTemplate.Tests
             Assert.Equal("测试工站", reloaded.App.WorkStationName);
             Assert.Equal("OP999", reloaded.App.EquId);
             Assert.True(reloaded.App.Simulate);
+            Assert.Equal(UiThemeMode.日间, reloaded.App.Theme);
         }
 
         [Fact]

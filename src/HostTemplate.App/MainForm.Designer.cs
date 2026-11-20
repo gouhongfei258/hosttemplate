@@ -44,6 +44,7 @@ namespace HostTemplate.App
             this.btnUser = new Sunny.UI.UIButton();
             this.lblHint = new System.Windows.Forms.Label();
             this.lblVersion = new System.Windows.Forms.Label();
+            this.btnTheme = new Sunny.UI.UIButton();
             this.panelTop.SuspendLayout();
             this.panelInfo.SuspendLayout();
             this.panelAlarm.SuspendLayout();
@@ -57,6 +58,7 @@ namespace HostTemplate.App
             this.panelTop.BackColor = System.Drawing.Color.FromArgb(17, 24, 39);
             this.panelTop.Controls.Add(this.lblStation);
             this.panelTop.Controls.Add(this.lblSub);
+            this.panelTop.Controls.Add(this.btnTheme);
             this.panelTop.Controls.Add(this.lightPlc);
             this.panelTop.Controls.Add(this.lightApi);
             this.panelTop.Controls.Add(this.lightAlarm);
@@ -64,29 +66,33 @@ namespace HostTemplate.App
             this.panelTop.Dock = System.Windows.Forms.DockStyle.Top;
             this.panelTop.Location = new System.Drawing.Point(0, 0);
             this.panelTop.Name = "panelTop";
-            this.panelTop.Size = new System.Drawing.Size(1184, 80);
+            this.panelTop.Size = new System.Drawing.Size(1184, 100);
             this.panelTop.TabIndex = 0;
             //
             // lblStation
             //
+            this.lblStation.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) | System.Windows.Forms.AnchorStyles.Right)));
+            this.lblStation.AutoEllipsis = true;
             this.lblStation.AutoSize = false;
-            this.lblStation.Font = new System.Drawing.Font("Microsoft YaHei UI", 15F, System.Drawing.FontStyle.Bold);
+            this.lblStation.Font = new System.Drawing.Font("Microsoft YaHei UI", 22F, System.Drawing.FontStyle.Bold);
             this.lblStation.ForeColor = System.Drawing.Color.FromArgb(249, 250, 251);
-            this.lblStation.Location = new System.Drawing.Point(18, 10);
+            this.lblStation.Location = new System.Drawing.Point(18, 8);
             this.lblStation.Name = "lblStation";
-            this.lblStation.Size = new System.Drawing.Size(620, 32);
+            this.lblStation.Size = new System.Drawing.Size(574, 48);
             this.lblStation.TabIndex = 0;
             this.lblStation.Text = "上位机模板工站";
             this.lblStation.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // lblSub
             //
+            this.lblSub.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) | System.Windows.Forms.AnchorStyles.Right)));
+            this.lblSub.AutoEllipsis = true;
             this.lblSub.AutoSize = false;
-            this.lblSub.Font = new System.Drawing.Font("Microsoft YaHei UI", 9F);
+            this.lblSub.Font = new System.Drawing.Font("Microsoft YaHei UI", 14F);
             this.lblSub.ForeColor = System.Drawing.Color.FromArgb(156, 163, 175);
-            this.lblSub.Location = new System.Drawing.Point(20, 46);
+            this.lblSub.Location = new System.Drawing.Point(20, 58);
             this.lblSub.Name = "lblSub";
-            this.lblSub.Size = new System.Drawing.Size(620, 22);
+            this.lblSub.Size = new System.Drawing.Size(572, 32);
             this.lblSub.TabIndex = 1;
             this.lblSub.Text = "产线 -- / 工站 --";
             this.lblSub.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -97,7 +103,7 @@ namespace HostTemplate.App
             this.lightPlc.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.lightPlc.Font = new System.Drawing.Font("Microsoft YaHei UI", 9F);
             this.lightPlc.ForeColor = System.Drawing.Color.FromArgb(209, 213, 219);
-            this.lightPlc.Location = new System.Drawing.Point(750, 26);
+            this.lightPlc.Location = new System.Drawing.Point(750, 36);
             this.lightPlc.Name = "lightPlc";
             this.lightPlc.Size = new System.Drawing.Size(96, 28);
             this.lightPlc.TabIndex = 2;
@@ -109,7 +115,7 @@ namespace HostTemplate.App
             this.lightApi.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.lightApi.Font = new System.Drawing.Font("Microsoft YaHei UI", 9F);
             this.lightApi.ForeColor = System.Drawing.Color.FromArgb(209, 213, 219);
-            this.lightApi.Location = new System.Drawing.Point(855, 26);
+            this.lightApi.Location = new System.Drawing.Point(855, 36);
             this.lightApi.Name = "lightApi";
             this.lightApi.Size = new System.Drawing.Size(96, 28);
             this.lightApi.TabIndex = 3;
@@ -121,7 +127,7 @@ namespace HostTemplate.App
             this.lightAlarm.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.lightAlarm.Font = new System.Drawing.Font("Microsoft YaHei UI", 9F);
             this.lightAlarm.ForeColor = System.Drawing.Color.FromArgb(209, 213, 219);
-            this.lightAlarm.Location = new System.Drawing.Point(960, 26);
+            this.lightAlarm.Location = new System.Drawing.Point(960, 36);
             this.lightAlarm.Name = "lightAlarm";
             this.lightAlarm.Size = new System.Drawing.Size(96, 28);
             this.lightAlarm.TabIndex = 4;
@@ -133,7 +139,7 @@ namespace HostTemplate.App
             this.lightRun.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.lightRun.Font = new System.Drawing.Font("Microsoft YaHei UI", 9F);
             this.lightRun.ForeColor = System.Drawing.Color.FromArgb(209, 213, 219);
-            this.lightRun.Location = new System.Drawing.Point(1065, 26);
+            this.lightRun.Location = new System.Drawing.Point(1065, 36);
             this.lightRun.Name = "lightRun";
             this.lightRun.Size = new System.Drawing.Size(96, 28);
             this.lightRun.TabIndex = 5;
@@ -316,14 +322,14 @@ namespace HostTemplate.App
             this.panelBottom.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.panelBottom.Location = new System.Drawing.Point(0, 673);
             this.panelBottom.Name = "panelBottom";
-            this.panelBottom.Size = new System.Drawing.Size(1184, 68);
+            this.panelBottom.Size = new System.Drawing.Size(1184, 76);
             this.panelBottom.TabIndex = 4;
             //
             // btnStart
             //
             this.btnStart.FillColor = System.Drawing.Color.FromArgb(22, 163, 74);
             this.btnStart.Font = new System.Drawing.Font("Microsoft YaHei UI", 11F);
-            this.btnStart.Location = new System.Drawing.Point(18, 14);
+            this.btnStart.Location = new System.Drawing.Point(18, 18);
             this.btnStart.Name = "btnStart";
             this.btnStart.Radius = 4;
             this.btnStart.RectColor = System.Drawing.Color.FromArgb(22, 163, 74);
@@ -336,7 +342,7 @@ namespace HostTemplate.App
             //
             this.btnStop.FillColor = System.Drawing.Color.FromArgb(185, 28, 28);
             this.btnStop.Font = new System.Drawing.Font("Microsoft YaHei UI", 11F);
-            this.btnStop.Location = new System.Drawing.Point(152, 14);
+            this.btnStop.Location = new System.Drawing.Point(152, 18);
             this.btnStop.Name = "btnStop";
             this.btnStop.Radius = 4;
             this.btnStop.RectColor = System.Drawing.Color.FromArgb(185, 28, 28);
@@ -349,7 +355,7 @@ namespace HostTemplate.App
             //
             this.btnReset.FillColor = System.Drawing.Color.FromArgb(55, 65, 81);
             this.btnReset.Font = new System.Drawing.Font("Microsoft YaHei UI", 11F);
-            this.btnReset.Location = new System.Drawing.Point(286, 14);
+            this.btnReset.Location = new System.Drawing.Point(286, 18);
             this.btnReset.Name = "btnReset";
             this.btnReset.Radius = 4;
             this.btnReset.RectColor = System.Drawing.Color.FromArgb(75, 85, 99);
@@ -362,7 +368,7 @@ namespace HostTemplate.App
             //
             this.btnConfig.FillColor = System.Drawing.Color.FromArgb(55, 65, 81);
             this.btnConfig.Font = new System.Drawing.Font("Microsoft YaHei UI", 11F);
-            this.btnConfig.Location = new System.Drawing.Point(420, 14);
+            this.btnConfig.Location = new System.Drawing.Point(420, 18);
             this.btnConfig.Name = "btnConfig";
             this.btnConfig.Radius = 4;
             this.btnConfig.RectColor = System.Drawing.Color.FromArgb(75, 85, 99);
@@ -375,7 +381,7 @@ namespace HostTemplate.App
             //
             this.btnUser.FillColor = System.Drawing.Color.FromArgb(55, 65, 81);
             this.btnUser.Font = new System.Drawing.Font("Microsoft YaHei UI", 11F);
-            this.btnUser.Location = new System.Drawing.Point(554, 14);
+            this.btnUser.Location = new System.Drawing.Point(554, 18);
             this.btnUser.Name = "btnUser";
             this.btnUser.Radius = 4;
             this.btnUser.RectColor = System.Drawing.Color.FromArgb(75, 85, 99);
@@ -388,11 +394,11 @@ namespace HostTemplate.App
             //
             this.lblHint.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) | System.Windows.Forms.AnchorStyles.Right)));
             this.lblHint.AutoEllipsis = true;
-            this.lblHint.Font = new System.Drawing.Font("Microsoft YaHei UI", 9F);
+            this.lblHint.Font = new System.Drawing.Font("Microsoft YaHei UI", 14F);
             this.lblHint.ForeColor = System.Drawing.Color.FromArgb(107, 114, 128);
-            this.lblHint.Location = new System.Drawing.Point(690, 24);
+            this.lblHint.Location = new System.Drawing.Point(690, 20);
             this.lblHint.Name = "lblHint";
-            this.lblHint.Size = new System.Drawing.Size(310, 22);
+            this.lblHint.Size = new System.Drawing.Size(286, 36);
             this.lblHint.TabIndex = 5;
             this.lblHint.Text = "HostTemplate";
             this.lblHint.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -401,14 +407,30 @@ namespace HostTemplate.App
             //
             this.lblVersion.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.lblVersion.AutoEllipsis = true;
-            this.lblVersion.Font = new System.Drawing.Font("Consolas", 9F);
+            this.lblVersion.Font = new System.Drawing.Font("Consolas", 14F);
             this.lblVersion.ForeColor = System.Drawing.Color.FromArgb(156, 163, 175);
-            this.lblVersion.Location = new System.Drawing.Point(1004, 24);
+            this.lblVersion.Location = new System.Drawing.Point(988, 20);
             this.lblVersion.Name = "lblVersion";
-            this.lblVersion.Size = new System.Drawing.Size(164, 22);
+            this.lblVersion.Size = new System.Drawing.Size(180, 36);
             this.lblVersion.TabIndex = 6;
             this.lblVersion.Text = "v1.0.0";
             this.lblVersion.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            //
+            // btnTheme
+            //
+            this.btnTheme.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnTheme.FillColor = System.Drawing.Color.FromArgb(241, 245, 249);
+            this.btnTheme.Font = new System.Drawing.Font("Microsoft YaHei UI", 14F, System.Drawing.FontStyle.Bold);
+            this.btnTheme.ForeColor = System.Drawing.Color.FromArgb(15, 23, 42);
+            this.btnTheme.Location = new System.Drawing.Point(606, 32);
+            this.btnTheme.Name = "btnTheme";
+            this.btnTheme.Radius = 4;
+            this.btnTheme.RectColor = System.Drawing.Color.FromArgb(226, 232, 240);
+            this.btnTheme.Size = new System.Drawing.Size(128, 36);
+            this.btnTheme.StyleCustomMode = true;
+            this.btnTheme.TabIndex = 6;
+            this.btnTheme.Text = "日间";
+            this.btnTheme.Click += new System.EventHandler(this.BtnTheme_Click);
             //
             // MainForm
             //
@@ -421,7 +443,7 @@ namespace HostTemplate.App
             this.Controls.Add(this.panelInfo);
             this.Controls.Add(this.panelTop);
             this.Font = new System.Drawing.Font("Microsoft YaHei UI", 9F);
-            this.MinimumSize = new System.Drawing.Size(1000, 720);
+            this.MinimumSize = new System.Drawing.Size(1000, 760);
             this.Name = "MainForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "上位机模板 · 监控";
@@ -462,5 +484,6 @@ namespace HostTemplate.App
         private Sunny.UI.UIButton btnUser;
         private System.Windows.Forms.Label lblHint;
         private System.Windows.Forms.Label lblVersion;
+        private Sunny.UI.UIButton btnTheme;
     }
 }
