@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 using HostTemplate.Core.Abstractions;
 
 namespace HostTemplate.Devices.Plc.Simulation
@@ -12,17 +13,18 @@ namespace HostTemplate.Devices.Plc.Simulation
     ///   3. 单元测试 / CI 回归。
     ///
     /// 地址表与真实 PLC 一致，业务代码无需任何改动即可切换。
+    /// 读写走异步接口，但数据在内存里，不调用 HSL。
     /// </summary>
     public sealed class FakePlcClient : IPlcClient
     {
         private readonly Dictionary<string, object> _memory = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
-        private readonly object _gate = new object();
+        private readonly SemaphoreSlim _gate = new SemaphoreSlim(1, 1);
         private readonly string _commandAddress;
 
         private Timer _flowTimer;
         private ushort[] _flowWords;
         private int _flowIndex;
-        private bool _disposed;
+        private int _disposeStarted;
 
         public FakePlcClient(string commandAddress = "MW200")
         {
@@ -39,78 +41,117 @@ namespace HostTemplate.Devices.Plc.Simulation
         /// <summary>置 true 可模拟连接失败，验证重连与报警。</summary>
         public bool FailOpen { get; set; }
 
-        public bool Open(out string error)
+        public async Task<DeviceResult> OpenAsync(CancellationToken cancellationToken = default)
         {
-            error = string.Empty;
-
             if (OpenDelayMs > 0)
             {
-                Thread.Sleep(OpenDelayMs);
+                await Task.Delay(OpenDelayMs, cancellationToken).ConfigureAwait(false);
             }
 
             if (FailOpen)
             {
-                error = "仿真器：连接被拒绝";
-                return false;
+                return DeviceResult.Fail("仿真器：连接被拒绝");
             }
 
             IsConnected = true;
-            return true;
+            return DeviceResult.Ok();
         }
 
-        public void Close()
+        public Task CloseAsync(CancellationToken cancellationToken = default)
         {
             IsConnected = false;
+            return Task.CompletedTask;
         }
 
         public void SetWord(string address, ushort value)
         {
-            lock (_gate)
+            _gate.Wait();
+            try
             {
                 _memory[address] = value;
+            }
+            finally
+            {
+                _gate.Release();
             }
         }
 
         public void SetWords(string address, params ushort[] values)
         {
-            lock (_gate)
+            _gate.Wait();
+            try
             {
                 _memory[address] = values ?? Array.Empty<ushort>();
+            }
+            finally
+            {
+                _gate.Release();
             }
         }
 
         public void SetBool(string address, bool value)
         {
-            lock (_gate)
+            _gate.Wait();
+            try
             {
                 _memory[address] = value;
+            }
+            finally
+            {
+                _gate.Release();
             }
         }
 
         public void SetBoolArray(string address, params bool[] values)
         {
-            lock (_gate)
+            _gate.Wait();
+            try
             {
                 _memory[address] = values ?? Array.Empty<bool>();
+            }
+            finally
+            {
+                _gate.Release();
             }
         }
 
         public void SetString(string address, string value)
         {
-            lock (_gate)
+            _gate.Wait();
+            try
             {
                 _memory[address] = value ?? string.Empty;
+            }
+            finally
+            {
+                _gate.Release();
             }
         }
 
         public ushort GetWord(string address)
         {
-            return ReadWord(address, out var value, out _) ? value : (ushort)0;
+            _gate.Wait();
+            try
+            {
+                return PeekWord(address);
+            }
+            finally
+            {
+                _gate.Release();
+            }
         }
 
         public string GetString(string address)
         {
-            return ReadString(address, 0, out var value, out _) ? value : string.Empty;
+            _gate.Wait();
+            try
+            {
+                return _memory.TryGetValue(address, out var raw) && raw is string text ? text : string.Empty;
+            }
+            finally
+            {
+                _gate.Release();
+            }
         }
 
         /// <summary>
@@ -148,44 +189,35 @@ namespace HostTemplate.Devices.Plc.Simulation
             SetWords(_commandAddress, word, 0);
         }
 
-        public bool ReadBool(string address, out bool value, out string error)
+        public Task<DeviceResult<bool>> ReadBoolAsync(string address, CancellationToken cancellationToken = default)
         {
-            error = string.Empty;
-            value = false;
-
-            lock (_gate)
+            return ReadAsync(cancellationToken, () =>
             {
+                var value = false;
                 if (!_memory.TryGetValue(address, out var raw))
                 {
-                    return true;
+                    return value;
                 }
 
-                if (raw is bool b)
+                if (raw is bool bit)
                 {
-                    value = b;
+                    value = bit;
                 }
                 else if (raw is bool[] array && array.Length > 0)
                 {
                     value = array[0];
                 }
 
-                return true;
-            }
+                return value;
+            });
         }
 
-        public bool ReadBoolArray(string address, int count, out bool[] values, out string error)
+        public Task<DeviceResult<bool[]>> ReadBoolArrayAsync(string address, int count, CancellationToken cancellationToken = default)
         {
-            error = string.Empty;
-            values = new bool[Math.Max(0, count)];
-
-            lock (_gate)
+            return ReadAsync(cancellationToken, () =>
             {
-                if (!_memory.TryGetValue(address, out var raw))
-                {
-                    return true;
-                }
-
-                if (raw is bool[] array)
+                var values = new bool[Math.Max(0, count)];
+                if (_memory.TryGetValue(address, out var raw) && raw is bool[] array)
                 {
                     for (var i = 0; i < values.Length && i < array.Length; i++)
                     {
@@ -193,49 +225,23 @@ namespace HostTemplate.Devices.Plc.Simulation
                     }
                 }
 
-                return true;
-            }
+                return values;
+            });
         }
 
-        public bool ReadWord(string address, out ushort value, out string error)
+        public Task<DeviceResult<ushort>> ReadWordAsync(string address, CancellationToken cancellationToken = default)
         {
-            error = string.Empty;
-            value = 0;
-
-            lock (_gate)
-            {
-                if (!_memory.TryGetValue(address, out var raw))
-                {
-                    return true;
-                }
-
-                switch (raw)
-                {
-                    case ushort word:
-                        value = word;
-                        break;
-                    case ushort[] array when array.Length > 0:
-                        value = array[0];
-                        break;
-                    case int intValue:
-                        value = (ushort)intValue;
-                        break;
-                }
-
-                return true;
-            }
+            return ReadAsync(cancellationToken, () => PeekWord(address));
         }
 
-        public bool ReadWordArray(string address, int count, out ushort[] values, out string error)
+        public Task<DeviceResult<ushort[]>> ReadWordArrayAsync(string address, int count, CancellationToken cancellationToken = default)
         {
-            error = string.Empty;
-            values = new ushort[Math.Max(0, count)];
-
-            lock (_gate)
+            return ReadAsync(cancellationToken, () =>
             {
+                var values = new ushort[Math.Max(0, count)];
                 if (!_memory.TryGetValue(address, out var raw))
                 {
-                    return true;
+                    return values;
                 }
 
                 switch (raw)
@@ -252,112 +258,115 @@ namespace HostTemplate.Devices.Plc.Simulation
                         break;
                 }
 
-                return true;
-            }
+                return values;
+            });
         }
 
-        public bool ReadInt32(string address, out int value, out string error)
+        public Task<DeviceResult<int>> ReadInt32Async(string address, CancellationToken cancellationToken = default)
         {
-            error = string.Empty;
-            value = 0;
+            return ReadAsync(cancellationToken, () =>
+                _memory.TryGetValue(address, out var raw) && raw is int intValue ? intValue : 0);
+        }
 
-            lock (_gate)
+        public Task<DeviceResult<float>> ReadRealAsync(string address, CancellationToken cancellationToken = default)
+        {
+            return ReadAsync(cancellationToken, () =>
+                _memory.TryGetValue(address, out var raw) && raw is float floatValue ? floatValue : 0f);
+        }
+
+        public Task<DeviceResult<string>> ReadStringAsync(string address, int length, CancellationToken cancellationToken = default)
+        {
+            return ReadAsync(cancellationToken, () =>
+                _memory.TryGetValue(address, out var raw) && raw is string text ? text : string.Empty);
+        }
+
+        public Task<DeviceResult> WriteBoolAsync(string address, bool value, CancellationToken cancellationToken = default)
+        {
+            return WriteAsync(cancellationToken, () => _memory[address] = value);
+        }
+
+        public Task<DeviceResult> WriteWordAsync(string address, ushort value, CancellationToken cancellationToken = default)
+        {
+            return WriteAsync(cancellationToken, () => _memory[address] = value);
+        }
+
+        public Task<DeviceResult> WriteInt32Async(string address, int value, CancellationToken cancellationToken = default)
+        {
+            return WriteAsync(cancellationToken, () => _memory[address] = value);
+        }
+
+        public Task<DeviceResult> WriteRealAsync(string address, float value, CancellationToken cancellationToken = default)
+        {
+            return WriteAsync(cancellationToken, () => _memory[address] = value);
+        }
+
+        public Task<DeviceResult> WriteStringAsync(string address, string value, CancellationToken cancellationToken = default)
+        {
+            return WriteAsync(cancellationToken, () => _memory[address] = value ?? string.Empty);
+        }
+
+        private ushort PeekWord(string address)
+        {
+            if (!_memory.TryGetValue(address, out var raw))
             {
-                if (_memory.TryGetValue(address, out var raw) && raw is int intValue)
-                {
-                    value = intValue;
-                }
-
-                return true;
+                return 0;
             }
-        }
 
-        public bool ReadReal(string address, out float value, out string error)
-        {
-            error = string.Empty;
-            value = 0f;
-
-            lock (_gate)
+            switch (raw)
             {
-                if (_memory.TryGetValue(address, out var raw) && raw is float floatValue)
-                {
-                    value = floatValue;
-                }
-
-                return true;
+                case ushort word:
+                    return word;
+                case ushort[] array when array.Length > 0:
+                    return array[0];
+                case int intValue:
+                    return (ushort)intValue;
+                default:
+                    return 0;
             }
         }
 
-        public bool ReadString(string address, int length, out string value, out string error)
+        private async Task<DeviceResult<T>> ReadAsync<T>(CancellationToken cancellationToken, Func<T> read)
         {
-            error = string.Empty;
-            value = string.Empty;
-
-            lock (_gate)
+            await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
             {
-                if (_memory.TryGetValue(address, out var raw) && raw is string text)
-                {
-                    value = text;
-                }
-
-                return true;
+                return DeviceResult<T>.Ok(read());
             }
-        }
-
-        public bool WriteBool(string address, bool value, out string error)
-        {
-            error = string.Empty;
-            SetBool(address, value);
-            return true;
-        }
-
-        public bool WriteWord(string address, ushort value, out string error)
-        {
-            error = string.Empty;
-            SetWord(address, value);
-            return true;
-        }
-
-        public bool WriteInt32(string address, int value, out string error)
-        {
-            error = string.Empty;
-
-            lock (_gate)
+            finally
             {
-                _memory[address] = value;
+                _gate.Release();
             }
-
-            return true;
         }
 
-        public bool WriteReal(string address, float value, out string error)
+        private async Task<DeviceResult> WriteAsync(CancellationToken cancellationToken, Action write)
         {
-            error = string.Empty;
-
-            lock (_gate)
+            await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
             {
-                _memory[address] = value;
+                write();
+                return DeviceResult.Ok();
             }
-
-            return true;
+            finally
+            {
+                _gate.Release();
+            }
         }
 
-        public bool WriteString(string address, string value, out string error)
+        public ValueTask DisposeAsync()
         {
-            error = string.Empty;
-            SetString(address, value);
-            return true;
+            if (Interlocked.Exchange(ref _disposeStarted, 1) != 0)
+            {
+                return ValueTask.CompletedTask;
+            }
+
+            StopAutoFlow();
+            _gate.Dispose();
+            return ValueTask.CompletedTask;
         }
 
         public void Dispose()
         {
-            if (_disposed)
-            {
-                return;
-            }
-
-            _disposed = true;
-            StopAutoFlow();
+            DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
     }
 }

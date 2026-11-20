@@ -1,5 +1,8 @@
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 using HslCommunication.Profinet.Siemens;
+using HostTemplate.Core.Abstractions;
 using HostTemplate.Devices.Hsl;
 
 namespace HostTemplate.Devices.Plc.Siemens
@@ -41,29 +44,29 @@ namespace HostTemplate.Devices.Plc.Siemens
             };
 
             Device = _s7;
-            ConnectAction = () => _s7.ConnectServer();
-            CloseAction = () => _s7.ConnectClose();
+            ConnectAction = () => _s7.ConnectServerAsync();
+            CloseAction = () => _s7.ConnectCloseAsync();
         }
 
         /// <summary>底层 S7 对象，需要调本类未封装的方法时用。</summary>
         public SiemensS7Net S7 => _s7;
 
-        /// <summary>读 PLC 时钟（DB 中的 DATE_AND_TIME）。</summary>
-        public bool ReadDateTime(string address, out DateTime value, out string error)
+        /// <summary>读 PLC 时钟（DB 中的 DATE_AND_TIME）。调用 HSL 的 ReadDateTimeAsync。</summary>
+        public Task<DeviceResult<DateTime>> ReadDateTimeAsync(string address, CancellationToken cancellationToken = default)
         {
-            return TryRead(address, () => _s7.ReadDateTime(address), out value, out error);
+            return TryReadAsync(address, () => _s7.ReadDateTimeAsync(address), cancellationToken);
         }
 
-        /// <summary>写 PLC 时钟。</summary>
-        public bool WriteDateTime(string address, DateTime value, out string error)
+        /// <summary>写 PLC 时钟。调用 HSL 的 WriteAsync(string, DateTime)。</summary>
+        public Task<DeviceResult> WriteDateTimeAsync(string address, DateTime value, CancellationToken cancellationToken = default)
         {
-            return TryWrite(address, () => _s7.Write(address, value), out error);
+            return TryWriteAsync(address, () => _s7.WriteAsync(address, value), cancellationToken);
         }
 
-        /// <summary>读 CPU 订货号，用于上线自检日志。</summary>
-        public bool ReadOrderNumber(out string value, out string error)
+        /// <summary>读 CPU 订货号，用于上线自检日志。调用 HSL 的 ReadOrderNumberAsync。</summary>
+        public Task<DeviceResult<string>> ReadOrderNumberAsync(CancellationToken cancellationToken = default)
         {
-            return TryCall(() => _s7.ReadOrderNumber(), out value, out error);
+            return TryCallAsync(() => _s7.ReadOrderNumberAsync(), cancellationToken);
         }
 
         private static SiemensPLCS ParseCpu(string cpu)

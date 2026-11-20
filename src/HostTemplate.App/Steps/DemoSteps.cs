@@ -41,7 +41,10 @@ namespace HostTemplate.App.Steps
             context.State.StartTime = DateTime.Now;
             context.State.Testing = true;
 
-            var sn = context.ReadPlcString(AddressKeys.PlcSerialNumber, 20).Trim();
+            var sn = (await context.ReadPlcStringAsync(
+                AddressKeys.PlcSerialNumber,
+                20,
+                context.CancellationToken).ConfigureAwait(false)).Trim();
 
             // 仿真模式下 PLC 里没有 SN，这里造一个符合长度要求的，便于整条流程跑通。
             if (string.IsNullOrEmpty(sn))
@@ -56,7 +59,10 @@ namespace HostTemplate.App.Steps
                 var address = context.Station.GetAddress(AddressKeys.MesSerialNumber);
                 if (!string.IsNullOrEmpty(address))
                 {
-                    context.Plc?.WriteString(address, sn, out _);
+                    if (context.Plc != null)
+                    {
+                        await context.Plc.WriteStringAsync(address, sn, context.CancellationToken).ConfigureAwait(false);
+                    }
                 }
             }
 

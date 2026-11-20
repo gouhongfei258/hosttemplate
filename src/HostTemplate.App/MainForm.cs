@@ -537,14 +537,14 @@ namespace HostTemplate.App
             }
         }
 
-        private void BtnReset_Click(object sender, EventArgs e)
+        private async void BtnReset_Click(object sender, EventArgs e)
         {
             try
             {
                 var address = _context.GetAddress(AddressKeys.Command);
                 if (!string.IsNullOrEmpty(address) && _context.PlcClient != null)
                 {
-                    _context.PlcClient.WriteWord(address, ProcessWords.Idle, out _);
+                    await _context.PlcClient.WriteWordAsync(address, ProcessWords.Idle);
                 }
 
                 _context.Trace.Clear();

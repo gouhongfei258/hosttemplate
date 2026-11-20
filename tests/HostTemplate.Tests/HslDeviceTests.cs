@@ -1,5 +1,9 @@
 using System;
 using System.Linq;
+using System.Net;
+using System.Net.Sockets;
+using System.Threading.Tasks;
+using HslCommunication.ModBus;
 using HostTemplate.Core.Configuration;
 using HostTemplate.Devices.Hsl;
 using HostTemplate.Devices.Plc.Melsec;
@@ -77,34 +81,110 @@ namespace HostTemplate.Tests
         }
 
         [Fact]
-        public void Siemens7Client_WhenNotConnected_ShouldFailFast()
+        public async Task Siemens7Client_WhenNotConnected_ShouldFailFast()
         {
-            using (var client = new Siemens7Client("127.0.0.1"))
+            await using (var client = new Siemens7Client("127.0.0.1"))
             {
                 Assert.False(client.IsConnected);
 
-                Assert.False(client.ReadBool("M0.0", out _, out var error));
-                Assert.Equal("设备未连接", error);
+                var bit = await client.ReadBoolAsync("M0.0");
+                Assert.False(bit.Success);
+                Assert.Equal("设备未连接", bit.Error);
 
-                Assert.False(client.ReadInt32("DB1.DBD0", out _, out error));
-                Assert.Equal("设备未连接", error);
+                var number = await client.ReadInt32Async("DB1.DBD0");
+                Assert.False(number.Success);
+                Assert.Equal("设备未连接", number.Error);
 
-                Assert.False(client.WriteWord("MW200", 1, out error));
-                Assert.Equal("设备未连接", error);
+                var write = await client.WriteWordAsync("MW200", 1);
+                Assert.False(write.Success);
+                Assert.Equal("设备未连接", write.Error);
             }
         }
 
         [Fact]
-        public void ReadWithEmptyAddress_ShouldReportAddressError()
+        public async Task ReadWithEmptyAddress_WhenDisconnected_ShouldNotThrow()
         {
             var config = ConfigManager.CreateDefaultPlc();
             config.Protocol = "ModbusTcp";
 
-            using (var client = (ModbusTcpClient)HslDeviceFactory.Create(config))
+            await using (var client = (ModbusTcpClient)HslDeviceFactory.Create(config))
             {
-                // 未连接优先报未连接；连上后才会校验地址，这里只断言不会抛异常。
-                Assert.False(client.ReadUInt16("", out _, out var error));
-                Assert.False(string.IsNullOrEmpty(error));
+                // 未连接优先报未连接；连上后才会校验地址。
+                var read = await client.ReadUInt16Async("");
+                Assert.False(read.Success);
+                Assert.False(string.IsNullOrEmpty(read.Error));
+            }
+        }
+
+        [Fact]
+        public async Task OpenAsync_WhenPortClosed_ShouldStayDisconnected()
+        {
+            await using (var client = new Siemens7Client("127.0.0.1", 1, "S1200", 300, 300))
+            {
+                var opened = await client.OpenAsync();
+
+                Assert.False(opened.Success);
+                Assert.False(string.IsNullOrEmpty(opened.Error));
+                Assert.False(client.IsConnected);
+
+                var read = await client.ReadBoolAsync("M0.0");
+                Assert.Equal("设备未连接", read.Error);
+            }
+        }
+
+        [Fact]
+        public async Task ModbusTcpClient_Loopback_ShouldReadAndWriteThroughAsyncApi()
+        {
+            var port = FreeTcpPort();
+            var server = new ModbusTcpServer();
+            server.ServerStart(port);
+
+            try
+            {
+                await using (var client = new ModbusTcpClient("127.0.0.1", port, 1, 2000, 2000))
+                {
+                    var opened = await client.OpenAsync();
+                    Assert.True(opened.Success, opened.Error);
+
+                    var empty = await client.ReadUInt16Async(" ");
+                    Assert.False(empty.Success);
+                    Assert.Equal("地址为空", empty.Error);
+
+                    var written = await client.WriteWordAsync("100", 42);
+                    Assert.True(written.Success, written.Error);
+
+                    var read = await client.ReadWordAsync("100");
+                    Assert.True(read.Success, read.Error);
+                    Assert.Equal((ushort)42, read.Value);
+
+                    var register = await client.WriteOneRegisterAsync("101", 7);
+                    Assert.True(register.Success, register.Error);
+                    var registerRead = await client.ReadWordAsync("101");
+                    Assert.True(registerRead.Success, registerRead.Error);
+                    Assert.Equal((ushort)7, registerRead.Value);
+
+                    var coil = await client.WriteBoolAsync("0", true);
+                    Assert.True(coil.Success, coil.Error);
+                    var coilRead = await client.ReadCoilAsync("0");
+                    Assert.True(coilRead.Success, coilRead.Error);
+                    Assert.True(coilRead.Value);
+
+                    var parallel = await Task.WhenAll(
+                        client.ReadWordAsync("100"),
+                        client.ReadWordAsync("100"),
+                        client.ReadWordAsync("100"));
+                    Assert.All(parallel, item => Assert.Equal((ushort)42, item.Value));
+
+                    await client.CloseAsync();
+                    Assert.False(client.IsConnected);
+
+                    var afterClose = await client.ReadWordAsync("100");
+                    Assert.Equal("设备未连接", afterClose.Error);
+                }
+            }
+            finally
+            {
+                server.ServerClose();
             }
         }
 
@@ -223,6 +303,15 @@ namespace HostTemplate.Tests
             {
                 Assert.IsType<DeltaTcpClient>(delta);
             }
+        }
+
+        private static int FreeTcpPort()
+        {
+            var listener = new TcpListener(IPAddress.Loopback, 0);
+            listener.Start();
+            var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+            listener.Stop();
+            return port;
         }
     }
 }

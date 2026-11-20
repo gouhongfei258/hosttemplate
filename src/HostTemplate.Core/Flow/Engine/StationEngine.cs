@@ -197,7 +197,10 @@ namespace HostTemplate.Core.Flow.Engine
 
             _context.State.RunningStep = string.Empty;
             _context.State.PlcConnected = false;
-            _context.PlcClient?.Close();
+            if (_context.PlcClient != null)
+            {
+                await _context.PlcClient.CloseAsync().ConfigureAwait(false);
+            }
 
             _context.Logger.Info("监控已停止。");
             RaiseStatus(LogicState.监控已停止, "监控已停止");
@@ -216,7 +219,7 @@ namespace HostTemplate.Core.Flow.Engine
                 {
                     await Task.Delay(pollMs, token).ConfigureAwait(false);
 
-                    if (!EnsureConnected())
+                    if (!await EnsureConnectedAsync().ConfigureAwait(false))
                     {
                         continue;
                     }
@@ -225,13 +228,16 @@ namespace HostTemplate.Core.Flow.Engine
 
                     if (_tick % heartbeatTicks == 0)
                     {
-                        WriteHeartbeat();
+                        await WriteHeartbeatAsync().ConfigureAwait(false);
                     }
 
-                    if (!ReadCommand(out var word))
+                    var command = await ReadCommandAsync().ConfigureAwait(false);
+                    if (command == null)
                     {
                         continue;
                     }
+
+                    var word = command.Value;
 
                     _context.State.ProcessWord = word;
                     _context.State.ProcessContent = ProcessWords.Describe(word);
@@ -250,7 +256,7 @@ namespace HostTemplate.Core.Flow.Engine
                         }
                     }
 
-                    ReadReserveBools();
+                    await ReadReserveBoolsAsync().ConfigureAwait(false);
 
                     _context.Alarms.Set("PLC轮询异常", false);
                     RaiseStatus(LogicState.正在监控, string.Empty);
@@ -268,7 +274,7 @@ namespace HostTemplate.Core.Flow.Engine
             }
         }
 
-        private bool EnsureConnected()
+        private async Task<bool> EnsureConnectedAsync()
         {
             var plc = _context.PlcClient;
             if (plc == null)
@@ -291,11 +297,12 @@ namespace HostTemplate.Core.Flow.Engine
 
             _lastConnectAttempt = DateTime.Now;
 
-            if (!plc.Open(out var error))
+            var opened = await plc.OpenAsync().ConfigureAwait(false);
+            if (!opened.Success)
             {
                 _context.State.PlcConnected = false;
-                _context.Alarms.Set("连接PLC失败", true, error);
-                _context.Logger.Warn("连接 PLC 失败：" + error);
+                _context.Alarms.Set("连接PLC失败", true, opened.Error);
+                _context.Logger.Warn("连接 PLC 失败：" + opened.Error);
                 return false;
             }
 
@@ -305,7 +312,7 @@ namespace HostTemplate.Core.Flow.Engine
             return true;
         }
 
-        private void WriteHeartbeat()
+        private async Task WriteHeartbeatAsync()
         {
             if (string.IsNullOrEmpty(_heartbeatAddress))
             {
@@ -314,35 +321,32 @@ namespace HostTemplate.Core.Flow.Engine
 
             _heartbeat = !_heartbeat;
 
-            if (_context.PlcClient.WriteBool(_heartbeatAddress, _heartbeat, out var error))
+            var written = await _context.PlcClient.WriteBoolAsync(_heartbeatAddress, _heartbeat).ConfigureAwait(false);
+            if (written.Success)
             {
                 _context.Alarms.Set("写心跳失败", false);
                 return;
             }
 
-            _context.Alarms.Set("写心跳失败", true, error);
-            DropConnection();
+            _context.Alarms.Set("写心跳失败", true, written.Error);
+            await DropConnectionAsync().ConfigureAwait(false);
         }
 
-        private bool ReadCommand(out ushort word)
+        private async Task<ushort?> ReadCommandAsync()
         {
-            word = 0;
-
-            if (!_context.PlcClient.ReadWordArray(_commandAddress, 2, out var words, out var error)
-                || words == null
-                || words.Length == 0)
+            var read = await _context.PlcClient.ReadWordArrayAsync(_commandAddress, 2).ConfigureAwait(false);
+            if (!read.Success || read.Value == null || read.Value.Length == 0)
             {
-                _context.Alarms.Set("读取流程字失败", true, error);
-                DropConnection();
-                return false;
+                _context.Alarms.Set("读取流程字失败", true, read.Error);
+                await DropConnectionAsync().ConfigureAwait(false);
+                return null;
             }
 
             _context.Alarms.Set("读取流程字失败", false);
-            word = words[0];
-            return true;
+            return read.Value[0];
         }
 
-        private void ReadReserveBools()
+        private async Task ReadReserveBoolsAsync()
         {
             if (string.IsNullOrEmpty(_reserveBoolAddress))
             {
@@ -355,12 +359,14 @@ namespace HostTemplate.Core.Flow.Engine
                 length = option.Length;
             }
 
-            if (!_context.PlcClient.ReadBoolArray(_reserveBoolAddress, length, out var values, out var error)
-                || values == null)
+            var read = await _context.PlcClient.ReadBoolArrayAsync(_reserveBoolAddress, length).ConfigureAwait(false);
+            if (!read.Success || read.Value == null)
             {
-                _context.Alarms.Set("读取预留位失败", true, error);
+                _context.Alarms.Set("读取预留位失败", true, read.Error);
                 return;
             }
+
+            var values = read.Value;
 
             _context.Alarms.Set("读取预留位失败", false);
 
@@ -444,7 +450,7 @@ namespace HostTemplate.Core.Flow.Engine
 
                 if (result != null)
                 {
-                    WriteReview(result.Review);
+                    await WriteReviewAsync(result.Review).ConfigureAwait(false);
                     CountPiece(result.Review, cycleClosed: false);
 
                     var level = result.Success ? "✔" : "✘";
@@ -564,7 +570,7 @@ namespace HostTemplate.Core.Flow.Engine
             }
         }
 
-        private void WriteReview(ReviewCode code)
+        private async Task WriteReviewAsync(ReviewCode code)
         {
             _context.State.ReviewCode = (ushort)code;
 
@@ -573,19 +579,23 @@ namespace HostTemplate.Core.Flow.Engine
                 return;
             }
 
-            if (_context.PlcClient.WriteWord(_reviewAddress, (ushort)code, out var error))
+            var written = await _context.PlcClient.WriteWordAsync(_reviewAddress, (ushort)code).ConfigureAwait(false);
+            if (written.Success)
             {
                 _context.Alarms.Set("回写审查结果失败", false);
                 return;
             }
 
-            _context.Alarms.Set("回写审查结果失败", true, error);
+            _context.Alarms.Set("回写审查结果失败", true, written.Error);
         }
 
-        private void DropConnection()
+        private async Task DropConnectionAsync()
         {
             _context.State.PlcConnected = false;
-            _context.PlcClient?.Close();
+            if (_context.PlcClient != null)
+            {
+                await _context.PlcClient.CloseAsync().ConfigureAwait(false);
+            }
         }
 
         private void RaiseStatus(LogicState state, string message)

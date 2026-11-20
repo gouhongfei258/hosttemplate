@@ -1,43 +1,46 @@
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace HostTemplate.Core.Abstractions
 {
     /// <summary>
     /// PLC 通信抽象。引擎只依赖此接口，换 PLC 品牌只换实现。
-    /// 所有读写都返回 bool 并输出 error，不抛异常——主循环不能被单次通信失败打断。
+    /// 读写返回 <see cref="DeviceResult"/>，不抛异常——主循环不能被单次通信失败打断。
+    /// HSL 12.8.3 的 Async 方法本身不接收 <see cref="CancellationToken"/>，令牌只用于取消排队，并在真正发起调用前检查一次。
     /// </summary>
-    public interface IPlcClient : IDisposable
+    public interface IPlcClient : IDisposable, IAsyncDisposable
     {
         string Address { get; }
 
         bool IsConnected { get; }
 
-        bool Open(out string error);
+        Task<DeviceResult> OpenAsync(CancellationToken cancellationToken = default);
 
-        void Close();
+        Task CloseAsync(CancellationToken cancellationToken = default);
 
-        bool ReadBool(string address, out bool value, out string error);
+        Task<DeviceResult<bool>> ReadBoolAsync(string address, CancellationToken cancellationToken = default);
 
-        bool ReadBoolArray(string address, int count, out bool[] values, out string error);
+        Task<DeviceResult<bool[]>> ReadBoolArrayAsync(string address, int count, CancellationToken cancellationToken = default);
 
-        bool ReadWord(string address, out ushort value, out string error);
+        Task<DeviceResult<ushort>> ReadWordAsync(string address, CancellationToken cancellationToken = default);
 
-        bool ReadWordArray(string address, int count, out ushort[] values, out string error);
+        Task<DeviceResult<ushort[]>> ReadWordArrayAsync(string address, int count, CancellationToken cancellationToken = default);
 
-        bool ReadInt32(string address, out int value, out string error);
+        Task<DeviceResult<int>> ReadInt32Async(string address, CancellationToken cancellationToken = default);
 
-        bool ReadReal(string address, out float value, out string error);
+        Task<DeviceResult<float>> ReadRealAsync(string address, CancellationToken cancellationToken = default);
 
-        bool ReadString(string address, int length, out string value, out string error);
+        Task<DeviceResult<string>> ReadStringAsync(string address, int length, CancellationToken cancellationToken = default);
 
-        bool WriteBool(string address, bool value, out string error);
+        Task<DeviceResult> WriteBoolAsync(string address, bool value, CancellationToken cancellationToken = default);
 
-        bool WriteWord(string address, ushort value, out string error);
+        Task<DeviceResult> WriteWordAsync(string address, ushort value, CancellationToken cancellationToken = default);
 
-        bool WriteInt32(string address, int value, out string error);
+        Task<DeviceResult> WriteInt32Async(string address, int value, CancellationToken cancellationToken = default);
 
-        bool WriteReal(string address, float value, out string error);
+        Task<DeviceResult> WriteRealAsync(string address, float value, CancellationToken cancellationToken = default);
 
-        bool WriteString(string address, string value, out string error);
+        Task<DeviceResult> WriteStringAsync(string address, string value, CancellationToken cancellationToken = default);
     }
 }
