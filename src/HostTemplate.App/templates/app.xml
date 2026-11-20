@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AppConfig xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <PcNo>1</PcNo>
+  <EquId>OP010</EquId>
+  <WorkStationName>上位机模板工站</WorkStationName>
+  <Line>LINE-01</Line>
+  <Station>普通工站</Station>
+  <Section>default</Section>
+  <PollIntervalMs>50</PollIntervalMs>
+  <HeartbeatTicks>10</HeartbeatTicks>
+  <RequiredSteps>
+    <unsignedShort>10</unsignedShort>
+    <unsignedShort>20</unsignedShort>
+    <unsignedShort>30</unsignedShort>
+  </RequiredSteps>
+  <SnLength>18</SnLength>
+  <SnPrefix />
+  <SaveTextLog>true</SaveTextLog>
+  <SaveDbLog>true</SaveDbLog>
+  <DatabasePath>Data\host.db</DatabasePath>
+  <Simulate>false</Simulate>
+  <SimulateStepSeconds>0</SimulateStepSeconds>
+  <EnableLogin>false</EnableLogin>
+  <SessionTimeoutMinutes>0</SessionTimeoutMinutes>
+  <Theme>夜间</Theme>
+  <AutoUpdate>false</AutoUpdate>
+</AppConfig>

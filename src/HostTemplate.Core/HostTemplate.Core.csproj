@@ -10,4 +10,8 @@
     <PackageReference Include="log4net" Version="3.3.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\HostTemplate.Contracts\HostTemplate.Contracts.csproj" />
+  </ItemGroup>
+
 </Project>

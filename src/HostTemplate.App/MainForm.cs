@@ -5,12 +5,14 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using HostTemplate.App.Controls;
 using HostTemplate.App.Forms;
+using HostTemplate.Contracts;
 using HostTemplate.Core.Abstractions;
 using HostTemplate.Core.Configuration;
 using HostTemplate.Core.Diagnostics;
 using HostTemplate.Core.Flow;
 using HostTemplate.Core.Runtime;
 using HostTemplate.Core.Security;
+using HostTemplate.Core.Updates;
 using Sunny.UI;
 
 namespace HostTemplate.App
@@ -28,6 +30,7 @@ namespace HostTemplate.App
         private readonly ToolTip _alarmTip;
         private readonly Func<StationContext, IPlcClient> _plcFactory;
         private readonly Func<StationContext, IApiClient> _apiFactory;
+        private readonly StationUpdateController _updates;
         private readonly string _versionText;
 
         private int _tick;
@@ -36,6 +39,8 @@ namespace HostTemplate.App
         private MesLamp _mesLamp = MesLamp.Off;
         private readonly System.Drawing.Color _mesOnColor;
         private MainTheme _theme = MainTheme.Night;
+        private bool _updateTicking;
+        private bool _closing;
 
         /// <summary>窗口显示后自动开始监控（配合 --autostart 使用）。</summary>
         public bool AutoStart { get; set; }
@@ -45,7 +50,8 @@ namespace HostTemplate.App
             StationEngine engine,
             Control realtimeView,
             Func<StationContext, IPlcClient> plcFactory = null,
-            Func<StationContext, IApiClient> apiFactory = null)
+            Func<StationContext, IApiClient> apiFactory = null,
+            StationUpdateController updates = null)
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _engine = engine ?? throw new ArgumentNullException(nameof(engine));
@@ -56,6 +62,7 @@ namespace HostTemplate.App
 
             _plcFactory = plcFactory;
             _apiFactory = apiFactory;
+            _updates = updates;
             _versionText = ReadDisplayVersion();
 
             InitializeComponent();
@@ -74,7 +81,7 @@ namespace HostTemplate.App
             ApplyTheme(MainTheme.For(_context.App.Theme));
 
             _refreshTimer = new Timer { Interval = 300 };
-            _refreshTimer.Tick += (s, e) => RefreshState();
+            _refreshTimer.Tick += async (s, e) => await OnRefreshTickAsync();
             _refreshTimer.Start();
 
             BindStaticInfo();
@@ -99,6 +106,36 @@ namespace HostTemplate.App
 
             lblVersion.Text = "v" + _versionText;
             Text = $"上位机模板 · {_context.App.WorkStationName} · v{_versionText}";
+        }
+
+        private async Task OnRefreshTickAsync()
+        {
+            RefreshState();
+
+            if (_updates == null || _closing || _updateTicking)
+            {
+                return;
+            }
+
+            _updateTicking = true;
+            try
+            {
+                var result = await _updates.TickAsync(System.Threading.CancellationToken.None);
+                if (!string.IsNullOrWhiteSpace(result.Message)
+                    && result.Status != UpdateStatus.Noop
+                    && result.Status != UpdateStatus.Cancelled)
+                {
+                    _context.Logger.Info(result.Message);
+                }
+            }
+            catch (Exception ex)
+            {
+                _context.Logger.Warn("检查更新失败：" + ex.Message);
+            }
+            finally
+            {
+                _updateTicking = false;
+            }
         }
 
         private void RefreshState()
@@ -312,6 +349,8 @@ namespace HostTemplate.App
             PaintButton(btnReset, _theme.ButtonSecondaryFill, _theme.ButtonSecondaryFore, _theme.ButtonSecondaryRect);
             PaintButton(btnConfig, _theme.ButtonSecondaryFill, _theme.ButtonSecondaryFore, _theme.ButtonSecondaryRect);
             PaintButton(btnUser, _theme.ButtonSecondaryFill, _theme.ButtonSecondaryFore, _theme.ButtonSecondaryRect);
+            PaintButton(btnRemoteConfig, _theme.ButtonSecondaryFill, _theme.ButtonSecondaryFore, _theme.ButtonSecondaryRect);
+            PaintButton(btnUpdate, _theme.ButtonSecondaryFill, _theme.ButtonSecondaryFore, _theme.ButtonSecondaryRect);
             PaintButton(btnTheme, _theme.ThemeButtonFill, _theme.ThemeButtonFore, _theme.ThemeButtonRect);
             btnTheme.Text = _theme.ThemeButtonText;
             _alarmTip.SetToolTip(btnTheme, _theme.ThemeButtonTip);
@@ -438,27 +477,7 @@ namespace HostTemplate.App
         {
             var assembly = typeof(MainForm).Assembly;
             var informational = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-
-            if (string.IsNullOrWhiteSpace(informational))
-            {
-                var version = assembly.GetName().Version;
-                return version == null ? "1.0.0" : version.ToString(3);
-            }
-
-            var plus = informational.IndexOf('+');
-            if (plus < 0)
-            {
-                return informational;
-            }
-
-            var head = informational.Substring(0, plus);
-            var tail = informational.Substring(plus + 1);
-            if (tail.Length > 7)
-            {
-                tail = tail.Substring(0, 7);
-            }
-
-            return string.IsNullOrEmpty(tail) ? head : head + "+" + tail;
+            return AppVersion.FormatDisplay(informational, assembly.GetName().Version);
         }
 
         private void OnEngineStatusChanged(object sender, EngineStatusEventArgs e)
@@ -531,6 +550,8 @@ namespace HostTemplate.App
                 _context.State.ProcessContent = ProcessWords.Describe(ProcessWords.Idle);
                 _context.State.SerialNumber = string.Empty;
                 _context.State.TrayNo = string.Empty;
+                _context.State.Testing = false;
+                _context.State.RunningStep = string.Empty;
 
                 _context.Logger.Info("流程已复位。");
             }
@@ -619,6 +640,119 @@ namespace HostTemplate.App
             }
         }
 
+        private async void BtnRemoteConfig_Click(object sender, EventArgs e)
+        {
+            if (_updates == null)
+            {
+                MessageBox.Show(this, "更新服务未装配。", "获取远端配置", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            var answer = MessageBox.Show(
+                this,
+                "将从服务器下载本工站配置，并覆盖本地的 app.xml、plc.xml、api.xml、users.xml。\r\n本机上尚未上传的修改会丢失。\r\n\r\n确定要继续吗？",
+                "覆盖本地配置",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning,
+                MessageBoxDefaultButton.Button2);
+
+            try
+            {
+                btnRemoteConfig.Enabled = false;
+                var result = await _updates.PullConfigAsync(
+                    answer == DialogResult.Yes,
+                    _context.Config.ConfigDirectory,
+                    () => ApplyConfigAsync(),
+                    System.Threading.CancellationToken.None);
+
+                MessageBox.Show(
+                    this,
+                    result.Message,
+                    answer == DialogResult.Yes ? "获取远端配置" : "已取消",
+                    MessageBoxButtons.OK,
+                    result.Status == UpdateStatus.Failed ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                _context.Logger.Error("获取远端配置失败", ex);
+                MessageBox.Show(this, ex.Message, "获取远端配置失败", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                btnRemoteConfig.Enabled = true;
+            }
+        }
+
+        private async void BtnUpdate_Click(object sender, EventArgs e)
+        {
+            if (_updates == null)
+            {
+                MessageBox.Show(this, "更新服务未装配。", "程序更新", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            VersionListResponse catalog;
+            try
+            {
+                btnUpdate.Enabled = false;
+                catalog = await _updates.ListVersionsAsync(System.Threading.CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _context.Logger.Error("读取版本列表失败", ex);
+                MessageBox.Show(this, ex.Message, "程序更新", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                btnUpdate.Enabled = true;
+                return;
+            }
+            finally
+            {
+                btnUpdate.Enabled = true;
+            }
+
+            using (var form = new UpdateForm(catalog, _versionText))
+            {
+                if (form.ShowDialog(this) != DialogResult.OK || form.SelectedVersion == null)
+                {
+                    return;
+                }
+
+                var selected = form.SelectedVersion;
+                var downgrade = AppVersion.Compare(selected.Version, _versionText) < 0;
+                var action = downgrade ? "回退到" : "安装";
+                var confirm = MessageBox.Show(
+                    this,
+                    "将" + action + "版本 " + selected.Version + "（当前 v" + _versionText + "）。\r\n安装完成后程序会重启。\r\n若工站正在生产（流程字不是等待进站，或仍有步骤在执行），会等空闲后再重启，不会在节拍中途打断。\r\n\r\n确定要继续吗？",
+                    downgrade ? "回退版本" : "安装版本",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning,
+                    MessageBoxDefaultButton.Button2);
+
+                try
+                {
+                    btnUpdate.Enabled = false;
+                    var result = await _updates.InstallAsync(selected.Version, confirm == DialogResult.Yes, System.Threading.CancellationToken.None);
+                    if (result.Status != UpdateStatus.Applied)
+                    {
+                        MessageBox.Show(
+                            this,
+                            result.Message,
+                            "程序更新",
+                            MessageBoxButtons.OK,
+                            result.Status == UpdateStatus.Failed ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _context.Logger.Error("安装所选版本失败", ex);
+                    MessageBox.Show(this, ex.Message, "程序更新", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                finally
+                {
+                    btnUpdate.Enabled = true;
+                }
+            }
+        }
+
         private void BtnUser_Click(object sender, EventArgs e)
         {
             // 权限判断就这一行：未启用登录时 Session 是匿名管理员，永远放行。
@@ -666,6 +800,7 @@ namespace HostTemplate.App
 
         protected override async void OnFormClosing(FormClosingEventArgs e)
         {
+            _closing = true;
             _refreshTimer.Stop();
             _context.Alarms.Changed -= OnAlarmChanged;
 

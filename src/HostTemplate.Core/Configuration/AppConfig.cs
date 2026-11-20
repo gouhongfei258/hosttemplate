@@ -86,6 +86,9 @@ namespace HostTemplate.Core.Configuration
         [Category("[界面]"), DisplayName("01.界面主题"), Description("主界面日间或夜间。主界面右上角的主题按钮会立即写回这里，下次启动保持。默认夜间。")]
         public UiThemeMode Theme { get; set; } = UiThemeMode.夜间;
 
+        [Category("[更新]"), DisplayName("01.自动更新"), Description("开启后，向更新服务查询本工站的目标版本。比当前程序新时在后台下载，等流程字回到等待进站且没有步骤在执行时再安装并重启。默认关闭。")]
+        public bool AutoUpdate { get; set; }
+
         [Browsable(false)]
         [XmlIgnore]
         public string DisplayName => $"{WorkStationName}（{EquId}）";

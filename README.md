@@ -12,7 +12,7 @@
 | 数据 | EF Core 8.0.1 + Microsoft.Data.Sqlite | 替代 EF6 + SQLite.CodeFirst（不支持 .NET 8） |
 | 日志 | log4net 3.3.0 | 落盘 + 事件推送界面（3.0.3 有 CVE-2026-40021，必须 ≥ 3.3.0） |
 | 配置 | XML + `XmlSerializer` + `PropertyGrid` | 现场可直接改、可可视化编辑 |
-| 测试 | xunit | 引擎/配置/轨迹/落库/鉴权/设备/实时数据共 63 个用例 |
+| 测试 | xunit | 引擎/配置/轨迹/落库/鉴权/设备/实时数据/配置加载顺序/更新，共 103 个用例 |
 
 ## 2. 目录
 
@@ -33,13 +33,17 @@ HostTemplate/
 │  │  ├─ Plc/                     Siemens7Client（S7）、FakePlcClient（仿真）
 │  │  ├─ Api/                     HttpApiClient（端点表驱动）
 │  │  └─ Tcp/                     TcpDeviceBase（打印机/扫码枪/仪器基类）
-│  └─ HostTemplate.App/           WinForms 主程序
-│     ├─ Program.cs               启动装配：单实例 → 日志 → 配置 → 上下文 → 登录 → 设备 → 引擎 → 界面
-│     ├─ MainForm.cs              监控台（状态灯 / 流程字 / 实时数据 / 日志 / 报警条）
-│     ├─ Forms/                   ConfigForm（配置）/ UserForm（账号）/ LoginForm / ChangePasswordForm
-│     ├─ Steps/                   DemoSteps.cs / DemoLiveView.cs（示例页，整页可换）
-│     └─ Controls/                StatusLight / UiLogSink
-├─ .github/workflows/release.yml  合并到 main 后发布 GitHub Release
+│  ├─ HostTemplate.App/           WinForms 主程序
+│  │  ├─ Program.cs               启动装配：单实例 → 日志 → 配置 → 上下文 → 登录 → 设备 → 引擎 → 界面
+│  │  ├─ MainForm.cs              监控台（状态灯 / 流程字 / 实时数据 / 日志 / 报警条）
+│  │  ├─ Forms/                   ConfigForm（配置）/ UserForm（账号）/ LoginForm / ChangePasswordForm
+│  │  ├─ Steps/                   DemoSteps.cs / DemoLiveView.cs（示例页，整页可换）
+│  │  └─ Controls/                StatusLight / UiLogSink
+│  ├─ HostTemplate.Contracts/     配置包与版本号约定（主机和服务共用）
+│  └─ HostTemplate.UpdateService/ 产线配置 / 版本 HTTP 服务（不依赖共享文件夹）
+├─ docs/config-and-updates.md     配置目录、加载顺序、更新
+├─ scripts/pack-velopack.ps1      在 Windows 上打 Velopack 全量包
+├─ .github/workflows/release.yml  合并到 main 后发布 GitHub Release（含 nupkg）
 └─ tests/HostTemplate.Tests/
 ```
 
@@ -56,7 +60,7 @@ dotnet run --project src/HostTemplate.App -- --simulate --autostart
 | `--autostart` | 窗口显示后自动开始监控（不点「开始监控」） |
 | `--config` | 直接打开配置编辑页，保存后退出（现场调试用） |
 
-首次启动会在 `bin/.../config/` 下自动生成 `app.xml`、`plc.xml`、`api.xml`，缺文件时回落默认值，不会启动失败。
+工站配置不放在程序目录。程序旁边是 `bootstrap.xml`，真正的 `app.xml`、`plc.xml`、`api.xml`、`users.xml` 在它指向的目录（默认 `%ProgramData%\HostTemplate\config`）。本地没有时先问更新服务，服务也没有再用程序自带模板，离线仍能启动。加载顺序、手动覆盖确认和自动更新见 [docs/config-and-updates.md](docs/config-and-updates.md)，服务怎么跑见 [src/HostTemplate.UpdateService/README.md](src/HostTemplate.UpdateService/README.md)。
 
 接真实 PLC 时把 `app.xml` 的 `Simulate` 改为 `false`，然后在「系统配置 → PLC 连接」里选型号、填 IP，点「连接测试」通了再保存（详见 7.1）。
 
@@ -123,9 +127,11 @@ public sealed class MyLeakTestStep : IStationStep
 
 | 文件 | 内容 | 关键字段 |
 |---|---|---|
-| `app.xml` | 机器/工站/运行参数 | `EquId`、`PollIntervalMs`、`HeartbeatTicks`、`RequiredSteps`、`Simulate` |
+| `app.xml` | 机器/工站/运行参数 | `EquId`、`PollIntervalMs`、`HeartbeatTicks`、`RequiredSteps`、`Simulate`、`Theme`、`AutoUpdate` |
 | `plc.xml` | 连接参数 + 地址表 | `Protocol`、`Address`、`Port`、`CpuType`、`Rack`、`Slot`、`StationNo`、`Addresses[]` |
 | `api.xml` | 上位系统接口 | `BaseUrl`、`Headers[]`、`Endpoints[]`、`Enabled` |
+
+`DatabasePath` 若是相对路径，相对配置目录而不是程序目录，避免版本替换时把本地库清掉。
 
 默认地址表（可在 `ConfigManager.CreateDefaultPlc()` 中调整）：
 
@@ -296,12 +302,13 @@ if (!context.Session.HasRole(UserRole.工程师)) { /* 拒绝 */ }
 
 - 历史数据查询页、日志查询页、返修换绑页（主界面只有当前周期，见 4.1）
 - 打印（Zebra ZPL）、扫码枪、视觉、指纹
-- Velopack 打包与在线更新
 - 串口类 PLC（HSL 的 `SerialBase` 家族，接法与 8.3 同构）
 - 已在模板里的 PLC 品牌：西门子 S7 / Modbus TCP / 汇川 / 台达 / 三菱 MC / 欧姆龙 FINS；其余品牌按 8.3 两步接入
 
+Velopack 打包和本线 HTTP 更新已经接上，见 [docs/config-and-updates.md](docs/config-and-updates.md)。
+
 ## 12. 合并后的 GitHub Release
 
-`.github/workflows/release.yml` 在推送到 `main`（PR 合并的常规结果）时，于 `windows-latest` 上用 .NET 8 跑测试，再 `dotnet publish` 到运行器临时目录。校验版本后打成 zip，创建 GitHub Release（标签 `v1.0.<run_number>`，说明里带短提交号），并把 zip 挂到该 Release。不往仓库提交二进制，也不在项目里留 `release/` 或 `publish/` 目录。
+`.github/workflows/release.yml` 在推送到 `main`（PR 合并的常规结果）时，于 `windows-latest` 上用 .NET 8 跑测试，再 `dotnet publish` 到运行器临时目录。校验版本后打成 zip，并用 `scripts/pack-velopack.ps1` 打 Velopack 全量包（`*-full.nupkg` + `releases.win.json`）。创建 GitHub Release（标签 `v1.0.<run_number>`，说明里带短提交号），把 zip 和 nupkg 挂到该 Release。不往仓库提交二进制，也不在项目里留 `release/` 或 `publish/` 目录。把 nupkg 放进更新服务的 `data/inbox` 即可供工站下载。Linux 上的 `vpk` 只能打 AppImage，Windows 包以这条 Action 为准。
 
 版本不提交回仓库。`Directory.Build.props` 固定主次版本 `1.0`，补丁默认 `0`，所以本机 `dotnet build` 的文件版本 / 程序集版本仍是 `1.0.0`。CI 用 `github.run_number` 作为补丁，并把 7 位提交号写入 `InformationalVersion`（例如 `1.0.42+abcdef0`）。标签只用 `v1.0.42`，不加 `+` 后面的提交号。在 git 工作副本里本地编译时，SDK 还会把完整提交号附在 `1.0.0+...` 上，数值版本不变。主界面标题和右下角显示的就是这个版本。

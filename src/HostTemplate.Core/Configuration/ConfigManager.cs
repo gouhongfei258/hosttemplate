@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using HostTemplate.Contracts;
 using HostTemplate.Core.Abstractions;
 
 namespace HostTemplate.Core.Configuration
@@ -11,9 +12,10 @@ namespace HostTemplate.Core.Configuration
     /// </summary>
     public sealed class ConfigManager
     {
-        public const string AppFileName = "app.xml";
-        public const string PlcFileName = "plc.xml";
-        public const string ApiFileName = "api.xml";
+        public const string AppFileName = StationFiles.App;
+        public const string PlcFileName = StationFiles.Plc;
+        public const string ApiFileName = StationFiles.Api;
+        public const string UsersFileName = StationFiles.Users;
 
         public ConfigManager(string configDirectory)
         {
@@ -35,6 +37,47 @@ namespace HostTemplate.Core.Configuration
         public string PlcPath => Path.Combine(ConfigDirectory, PlcFileName);
 
         public string ApiPath => Path.Combine(ConfigDirectory, ApiFileName);
+
+        public string UsersPath => Path.Combine(ConfigDirectory, UsersFileName);
+
+        /// <summary>
+        /// 三份必需文件都在且非空。缺一则不算完整本地配置，启动时才会向服务拉取。
+        /// </summary>
+        public bool HasRequiredFiles()
+        {
+            return HasRequiredFiles(ConfigDirectory);
+        }
+
+        public static bool HasRequiredFiles(string configDirectory)
+        {
+            if (string.IsNullOrWhiteSpace(configDirectory) || !Directory.Exists(configDirectory))
+            {
+                return false;
+            }
+
+            foreach (var name in StationFiles.Required)
+            {
+                var path = Path.Combine(configDirectory, name);
+                if (!File.Exists(path))
+                {
+                    return false;
+                }
+
+                try
+                {
+                    if (new FileInfo(path).Length <= 0)
+                    {
+                        return false;
+                    }
+                }
+                catch (IOException)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
 
         /// <summary>
         /// 加载全部配置。文件缺失或损坏时回落到默认值并重新生成，不阻断启动。

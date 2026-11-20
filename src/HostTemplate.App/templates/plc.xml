@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PlcConfig xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <Protocol>SiemensS7</Protocol>
+  <Address>192.168.0.1</Address>
+  <Port>102</Port>
+  <CpuType>S1200</CpuType>
+  <Rack>0</Rack>
+  <Slot>0</Slot>
+  <StationNo>1</StationNo>
+  <ConnectTimeoutMs>2000</ConnectTimeoutMs>
+  <ReceiveTimeoutMs>2000</ReceiveTimeoutMs>
+  <ReconnectDelayMs>2000</ReconnectDelayMs>
+  <Addresses>
+    <AddrOption>
+      <Name>MES_心跳</Name>
+      <Rw>RW</Rw>
+      <Address>M100.0</Address>
+      <Length>0</Length>
+      <DataType>Bool</DataType>
+      <Remark />
+    </AddrOption>
+    <AddrOption>
+      <Name>PLC_指令</Name>
+      <Rw>R</Rw>
+      <Address>MW200</Address>
+      <Length>2</Length>
+      <DataType>Word</DataType>
+      <Remark />
+    </AddrOption>
+    <AddrOption>
+      <Name>PLC_预留bool</Name>
+      <Rw>R</Rw>
+      <Address>M110.0</Address>
+      <Length>16</Length>
+      <DataType>Bool</DataType>
+      <Remark />
+    </AddrOption>
+    <AddrOption>
+      <Name>MES_审查结果</Name>
+      <Rw>RW</Rw>
+      <Address>MW210</Address>
+      <Length>0</Length>
+      <DataType>Word</DataType>
+      <Remark />
+    </AddrOption>
+    <AddrOption>
+      <Name>MES_SN</Name>
+      <Rw>W</Rw>
+      <Address>DB1.DBB0</Address>
+      <Length>20</Length>
+      <DataType>String</DataType>
+      <Remark />
+    </AddrOption>
+    <AddrOption>
+      <Name>PLC_SN</Name>
+      <Rw>R</Rw>
+      <Address>DB1.DBB100</Address>
+      <Length>20</Length>
+      <DataType>String</DataType>
+      <Remark />
+    </AddrOption>
+    <AddrOption>
+      <Name>PLC_托盘号</Name>
+      <Rw>R</Rw>
+      <Address>MW220</Address>
+      <Length>0</Length>
+      <DataType>Word</DataType>
+      <Remark />
+    </AddrOption>
+  </Addresses>
+</PlcConfig>

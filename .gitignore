@@ -3,6 +3,9 @@ obj/
 Logs/
 /release/
 /publish/
+.tools/
+src/HostTemplate.UpdateService/data/
+src/HostTemplate.UpdateService/inbox-processed/
 # 只忽略仓库根下的运行库。src 里的 Data 源码目录要入库。
 /Data/
 *.user

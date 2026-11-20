@@ -341,6 +341,57 @@ namespace HostTemplate.Tests
         }
 
         [Fact]
+        public async Task Engine_IsIdle_OnlyWhenProcessWordIsIdleAndNoStepIsRunning()
+        {
+            var context = CreateContext();
+            var fake = new FakePlcClient("MW200");
+            context.PlcClient = fake;
+            var release = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var started = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var step = new BlockingStep(started, release);
+
+            using (var engine = new StationEngine(context, new IStationStep[] { step }))
+            {
+                Assert.True(engine.IsIdle);
+
+                await engine.StartAsync();
+                fake.SetWords("MW200", ProcessWords.InStation, 0);
+                Assert.True(await WaitUntil(() => started.Task.IsCompleted), "步骤没有开始");
+                Assert.False(engine.IsIdle);
+
+                release.TrySetResult(true);
+                Assert.True(await WaitUntil(() => step.Finished && context.State.ProcessWord == ProcessWords.InStation));
+                Assert.False(engine.IsIdle);
+
+                fake.SetWords("MW200", ProcessWords.Idle, 0);
+                Assert.True(await WaitUntil(() => engine.IsIdle));
+                await engine.StopAsync();
+            }
+        }
+
+        [Fact]
+        public void StationIdle_ShouldIgnoreAddressTableAndUseProcessFlags()
+        {
+            var state = new StationState();
+            Assert.True(StationIdle.Evaluate(state, stepInFlight: false));
+
+            state.ProcessWord = ProcessWords.TestStart;
+            Assert.False(StationIdle.Evaluate(state, stepInFlight: false));
+
+            state.ProcessWord = ProcessWords.Idle;
+            state.Testing = true;
+            Assert.False(StationIdle.Evaluate(state, stepInFlight: false));
+
+            state.Testing = false;
+            state.RunningStep = "进站";
+            Assert.False(StationIdle.Evaluate(state, stepInFlight: false));
+
+            state.RunningStep = string.Empty;
+            Assert.False(StationIdle.Evaluate(state, stepInFlight: true));
+            Assert.True(StationIdle.Evaluate(state, stepInFlight: false));
+        }
+
+        [Fact]
         public async Task Engine_ShouldReportErrorWhenCommandAddressMissing()
         {
             var context = CreateContext(manager => manager.Plc.Addresses.Clear());
@@ -365,6 +416,33 @@ namespace HostTemplate.Tests
             configure?.Invoke(manager);
 
             return new StationContext(manager, new CollectingLogger(), _tempDirectory);
+        }
+
+        private sealed class BlockingStep : IStationStep
+        {
+            private readonly TaskCompletionSource<bool> _started;
+            private readonly TaskCompletionSource<bool> _release;
+
+            public BlockingStep(TaskCompletionSource<bool> started, TaskCompletionSource<bool> release)
+            {
+                _started = started;
+                _release = release;
+            }
+
+            public ushort Word => ProcessWords.InStation;
+
+            public string Name => "阻塞步骤";
+
+            public bool Finished { get; private set; }
+
+            public async Task<StepResult> ExecuteAsync(StepContext context)
+            {
+                context.State.Testing = true;
+                _started.TrySetResult(true);
+                await _release.Task.ConfigureAwait(false);
+                Finished = true;
+                return StepResult.Ok(ReviewCode.OK_InStation);
+            }
         }
 
         private sealed class RecordingStep : IStationStep

@@ -1,9 +1,13 @@
 using System;
 using System.IO;
+using System.Net.Http;
+using System.Reflection;
 using System.Threading;
 using System.Windows.Forms;
 using HostTemplate.App.Forms;
 using HostTemplate.App.Steps;
+using HostTemplate.App.Updates;
+using HostTemplate.Contracts;
 using HostTemplate.Core.Abstractions;
 using HostTemplate.Core.Configuration;
 using HostTemplate.Core.Data;
@@ -11,10 +15,12 @@ using HostTemplate.Core.Diagnostics;
 using HostTemplate.Core.Flow;
 using HostTemplate.Core.Runtime;
 using HostTemplate.Core.Security;
+using HostTemplate.Core.Updates;
 using HostTemplate.Devices.Api;
 using HostTemplate.Devices.Hsl;
 using HostTemplate.Devices.Plc;
 using log4net.Config;
+using Velopack;
 
 namespace HostTemplate.App
 {
@@ -25,6 +31,9 @@ namespace HostTemplate.App
         [STAThread]
         private static void Main(string[] args)
         {
+            // 更新替换程序时由 Velopack 先处理钩子。禁止它在启动瞬间自行重启，空闲判断在主循环里做。
+            VelopackApp.Build().SetAutoApplyOnStartup(false).Run();
+
             using (var mutex = new Mutex(true, MutexName, out var createdNew))
             {
                 if (!createdNew)
@@ -102,12 +111,46 @@ namespace HostTemplate.App
 
         private static void Run(Log4NetLogger logger, string baseDirectory, string[] args)
         {
-            logger.Info("================ 程序启动 ================");
+            // 1. 引导文件在程序旁边。工站配置在引导文件指向的目录，不跟版本目录走。
+            var bootstrap = BootstrapStore.LoadOrCreate(baseDirectory, out var bootstrapMessage);
 
-            // 1. 配置
-            var configDirectory = Path.Combine(baseDirectory, "config");
-            var config = new ConfigManager(configDirectory);
-            config.Load(out var configMessage);
+            try
+            {
+                LogDirectoryConfigurator.UseDirectory(bootstrap.LogDirectory);
+            }
+            catch (Exception ex)
+            {
+                logger.Warn("日志目录改到 " + bootstrap.LogDirectory + " 失败，仍写在程序目录：" + ex.Message);
+            }
+
+            logger.Info("================ 程序启动 ================");
+            if (!string.IsNullOrWhiteSpace(bootstrapMessage))
+            {
+                logger.Info(bootstrapMessage.Trim());
+            }
+
+            var templateDirectory = Path.Combine(baseDirectory, "templates");
+            using (var http = CreateServiceHttp(bootstrap))
+            {
+                var serviceClient = new HttpStationServiceClient(http);
+                var resolved = StationConfigLoader.ResolveAsync(bootstrap, templateDirectory, serviceClient, CancellationToken.None)
+                    .GetAwaiter()
+                    .GetResult();
+                RunWithConfig(logger, baseDirectory, args, bootstrap, resolved, serviceClient);
+            }
+        }
+
+        private static void RunWithConfig(
+            Log4NetLogger logger,
+            string baseDirectory,
+            string[] args,
+            BootstrapConfig bootstrap,
+            ConfigLoadResult resolved,
+            HttpStationServiceClient serviceClient)
+        {
+            var config = resolved.Manager;
+            var configMessage = resolved.Message;
+            logger.Info("配置来源：" + resolved.Source + "，目录：" + config.ConfigDirectory);
 
             if (!string.IsNullOrWhiteSpace(configMessage))
             {
@@ -131,7 +174,7 @@ namespace HostTemplate.App
 
             // 3. 登录鉴权。默认不启用（app.xml → [权限] 01.启用登录），
             //    未启用时 Session 为匿名管理员，权限判断全部放行。
-            if (!TryLogin(context, configDirectory, logger))
+            if (!TryLogin(context, config.ConfigDirectory, logger))
             {
                 return;
             }
@@ -169,13 +212,54 @@ namespace HostTemplate.App
             logger.Info($"工站：{context.App.WorkStationName}（{context.App.EquId}），仿真模式={context.App.Simulate}");
 
             var autoStart = args != null && Array.IndexOf(args, "--autostart") >= 0;
+            var updates = new StationUpdateController(
+                bootstrap.ServiceBaseUrl,
+                () => bootstrap.ResolveStationId(config.App.EquId),
+                () => config.App.AutoUpdate,
+                () => ReadDisplayVersion(),
+                serviceClient,
+                engine,
+                new VelopackUpdateInstaller(bootstrap.ServiceToken));
 
             // 「实时数据」整页在这里交给工站。DemoLiveView 只是能跑起来的示例。
             var realtimeView = new DemoLiveView(context.Live);
-            Application.Run(new MainForm(context, engine, realtimeView, CreatePlcClient, CreateApiClient)
+            Application.Run(new MainForm(context, engine, realtimeView, CreatePlcClient, CreateApiClient, updates)
             {
                 AutoStart = autoStart,
             });
+        }
+
+        private static HttpClient CreateServiceHttp(BootstrapConfig bootstrap)
+        {
+            var http = new HttpClient
+            {
+                Timeout = TimeSpan.FromSeconds(30),
+            };
+
+            if (!string.IsNullOrWhiteSpace(bootstrap.ServiceBaseUrl))
+            {
+                var url = bootstrap.ServiceBaseUrl.Trim();
+                if (!url.EndsWith("/", StringComparison.Ordinal))
+                {
+                    url += "/";
+                }
+
+                http.BaseAddress = new Uri(url);
+            }
+
+            if (!string.IsNullOrWhiteSpace(bootstrap.ServiceToken))
+            {
+                http.DefaultRequestHeaders.TryAddWithoutValidation(HttpStationServiceClient.TokenHeaderName, bootstrap.ServiceToken);
+            }
+
+            return http;
+        }
+
+        private static string ReadDisplayVersion()
+        {
+            var assembly = typeof(Program).Assembly;
+            var informational = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+            return AppVersion.FormatDisplay(informational, assembly.GetName().Version);
         }
 
         /// <summary>

@@ -42,6 +42,8 @@ namespace HostTemplate.App
             this.btnReset = new Sunny.UI.UIButton();
             this.btnConfig = new Sunny.UI.UIButton();
             this.btnUser = new Sunny.UI.UIButton();
+            this.btnRemoteConfig = new Sunny.UI.UIButton();
+            this.btnUpdate = new Sunny.UI.UIButton();
             this.lblHint = new System.Windows.Forms.Label();
             this.lblVersion = new System.Windows.Forms.Label();
             this.btnTheme = new Sunny.UI.UIButton();
@@ -317,12 +319,14 @@ namespace HostTemplate.App
             this.panelBottom.Controls.Add(this.btnReset);
             this.panelBottom.Controls.Add(this.btnConfig);
             this.panelBottom.Controls.Add(this.btnUser);
+            this.panelBottom.Controls.Add(this.btnRemoteConfig);
+            this.panelBottom.Controls.Add(this.btnUpdate);
             this.panelBottom.Controls.Add(this.lblHint);
             this.panelBottom.Controls.Add(this.lblVersion);
             this.panelBottom.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.panelBottom.Location = new System.Drawing.Point(0, 673);
             this.panelBottom.Name = "panelBottom";
-            this.panelBottom.Size = new System.Drawing.Size(1184, 76);
+            this.panelBottom.Size = new System.Drawing.Size(1184, 112);
             this.panelBottom.TabIndex = 4;
             //
             // btnStart
@@ -390,6 +394,32 @@ namespace HostTemplate.App
             this.btnUser.Text = "账号管理";
             this.btnUser.Click += new System.EventHandler(this.BtnUser_Click);
             //
+            // btnRemoteConfig
+            //
+            this.btnRemoteConfig.FillColor = System.Drawing.Color.FromArgb(55, 65, 81);
+            this.btnRemoteConfig.Font = new System.Drawing.Font("Microsoft YaHei UI", 11F);
+            this.btnRemoteConfig.Location = new System.Drawing.Point(18, 62);
+            this.btnRemoteConfig.Name = "btnRemoteConfig";
+            this.btnRemoteConfig.Radius = 4;
+            this.btnRemoteConfig.RectColor = System.Drawing.Color.FromArgb(75, 85, 99);
+            this.btnRemoteConfig.Size = new System.Drawing.Size(150, 40);
+            this.btnRemoteConfig.TabIndex = 7;
+            this.btnRemoteConfig.Text = "获取远端配置";
+            this.btnRemoteConfig.Click += new System.EventHandler(this.BtnRemoteConfig_Click);
+            //
+            // btnUpdate
+            //
+            this.btnUpdate.FillColor = System.Drawing.Color.FromArgb(55, 65, 81);
+            this.btnUpdate.Font = new System.Drawing.Font("Microsoft YaHei UI", 11F);
+            this.btnUpdate.Location = new System.Drawing.Point(176, 62);
+            this.btnUpdate.Name = "btnUpdate";
+            this.btnUpdate.Radius = 4;
+            this.btnUpdate.RectColor = System.Drawing.Color.FromArgb(75, 85, 99);
+            this.btnUpdate.Size = new System.Drawing.Size(120, 40);
+            this.btnUpdate.TabIndex = 8;
+            this.btnUpdate.Text = "程序更新";
+            this.btnUpdate.Click += new System.EventHandler(this.BtnUpdate_Click);
+            //
             // lblHint
             //
             this.lblHint.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) | System.Windows.Forms.AnchorStyles.Right)));
@@ -436,14 +466,14 @@ namespace HostTemplate.App
             //
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.BackColor = System.Drawing.Color.FromArgb(11, 18, 32);
-            this.ClientSize = new System.Drawing.Size(1184, 741);
+            this.ClientSize = new System.Drawing.Size(1184, 785);
             this.Controls.Add(this.tabMain);
             this.Controls.Add(this.panelBottom);
             this.Controls.Add(this.panelAlarm);
             this.Controls.Add(this.panelInfo);
             this.Controls.Add(this.panelTop);
             this.Font = new System.Drawing.Font("Microsoft YaHei UI", 9F);
-            this.MinimumSize = new System.Drawing.Size(1000, 760);
+            this.MinimumSize = new System.Drawing.Size(1100, 760);
             this.Name = "MainForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "上位机模板 · 监控";
@@ -482,6 +512,8 @@ namespace HostTemplate.App
         private Sunny.UI.UIButton btnReset;
         private Sunny.UI.UIButton btnConfig;
         private Sunny.UI.UIButton btnUser;
+        private Sunny.UI.UIButton btnRemoteConfig;
+        private Sunny.UI.UIButton btnUpdate;
         private System.Windows.Forms.Label lblHint;
         private System.Windows.Forms.Label lblVersion;
         private Sunny.UI.UIButton btnTheme;
