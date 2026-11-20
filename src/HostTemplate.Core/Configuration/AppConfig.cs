@@ -56,6 +56,9 @@ namespace HostTemplate.Core.Configuration
         [Category("[运行]"), DisplayName("03.出站前必须包含的流程字"), Description("留空表示不校验。默认 10-20-30（40 为出站本身，无需包含）")]
         public List<ushort> RequiredSteps { get; set; } = new List<ushort> { 10, 20, 30 };
 
+        [Category("[界面]"), DisplayName("02.测试类型"), Description("「实时数据」页按这个名字加载。默认、空白，或没有登记过的类型，都使用内置页面。其它类型由工站在启动时用 LiveViewCatalog.Register 登记，页面可以是任意控件。")]
+        public string TestType { get; set; } = "默认";
+
         [Category("[条码]"), DisplayName("01.条码长度"), Description("0 表示不校验长度")]
         public int SnLength { get; set; } = 18;
 
@@ -88,6 +91,9 @@ namespace HostTemplate.Core.Configuration
 
         [Category("[更新]"), DisplayName("01.自动更新"), Description("开启后，向更新服务查询本工站的目标版本。比当前程序新时在后台下载，等流程字回到等待进站且没有步骤在执行时再安装并重启。默认关闭。")]
         public bool AutoUpdate { get; set; }
+
+        [Category("[更新]"), DisplayName("02.开机自启"), Description("开启后写入当前用户的启动项，登录 Windows 后自动打开本程序。关闭后从启动项移除。已安装的程序指向 current 目录，更新后路径不变；调试运行则指向正在运行的程序。默认关闭。")]
+        public bool StartWithWindows { get; set; }
 
         [Browsable(false)]
         [XmlIgnore]

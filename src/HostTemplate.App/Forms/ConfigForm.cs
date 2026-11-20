@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using HostTemplate.App.Startup;
 using HostTemplate.Core.Abstractions;
 using HostTemplate.Core.Configuration;
 using HostTemplate.Core.Configuration.Store;
@@ -566,7 +567,7 @@ namespace HostTemplate.App.Forms
             SetTestResult(Color.FromArgb(107, 114, 128), "正在连接，请稍候…");
 
             var stopwatch = Stopwatch.StartNew();
-            var result = await Task.Run(() => Probe(probe, commandAddress));
+            var result = await ProbeAsync(probe, commandAddress);
             stopwatch.Stop();
 
             btnTestConnect.Enabled = true;
@@ -594,10 +595,11 @@ namespace HostTemplate.App.Forms
         }
 
         /// <summary>
-        /// 连接测试本体（后台线程执行）：建客户端 → 连接 → 读一次 PLC_指令。
+        /// 连接测试本体：建客户端 → 连接 → 读一次 PLC_指令。
+        /// 连接和读取走 HSL 异步接口，不占用界面线程。
         /// 失败时用 Ping 区分「网络不通」和「端口/站号不对」，现场排查省一半时间。
         /// </summary>
-        private static (bool Ok, string Message, string Detail) Probe(PlcConfig config, string commandAddress)
+        private static async Task<(bool Ok, string Message, string Detail)> ProbeAsync(PlcConfig config, string commandAddress)
         {
             IPlcClient client = null;
 
@@ -608,14 +610,15 @@ namespace HostTemplate.App.Forms
                     return (false, "创建客户端失败：" + createError, string.Empty);
                 }
 
-                if (!client.Open(out var openError))
+                var opened = await client.OpenAsync().ConfigureAwait(false);
+                if (!opened.Success)
                 {
                     var ping = client is HslDeviceBase hsl && hsl.Ping();
                     var hint = ping
                         ? "（IP 能 Ping 通，检查端口 / 站号 / 机架槽号）"
                         : "（IP 不通，检查网线、网段和 PLC 电源）";
 
-                    return (false, openError + hint, string.Empty);
+                    return (false, opened.Error + hint, string.Empty);
                 }
 
                 if (string.IsNullOrWhiteSpace(commandAddress))
@@ -623,12 +626,13 @@ namespace HostTemplate.App.Forms
                     return (true, string.Empty, "已连接，地址表暂无点位，未做读取");
                 }
 
-                if (client.ReadWord(commandAddress, out var word, out var readError))
+                var read = await client.ReadWordAsync(commandAddress).ConfigureAwait(false);
+                if (read.Success)
                 {
-                    return (true, string.Empty, $"读取 {commandAddress} = {word}");
+                    return (true, string.Empty, $"读取 {commandAddress} = {read.Value}");
                 }
 
-                return (true, string.Empty, $"已连接，但读取 {commandAddress} 失败：{readError}");
+                return (true, string.Empty, $"已连接，但读取 {commandAddress} 失败：{read.Error}");
             }
             catch (Exception ex)
             {
@@ -636,7 +640,10 @@ namespace HostTemplate.App.Forms
             }
             finally
             {
-                client?.Dispose();
+                if (client != null)
+                {
+                    await client.DisposeAsync().ConfigureAwait(false);
+                }
             }
         }
 
@@ -855,7 +862,22 @@ namespace HostTemplate.App.Forms
             Saved = true;
             _context.Logger.Info("配置已保存：" + _context.Config.ConfigDirectory);
 
+            var startup = WindowsAutoStart.Apply(_appEdit.StartWithWindows);
             var warnings = CollectWarnings();
+            if (!startup.Success)
+            {
+                warnings.Insert(0, "开机自启没有写进启动项：" + startup.Error);
+                _context.Logger.Warn("开机自启没有写进启动项：" + startup.Error);
+            }
+            else if (_appEdit.StartWithWindows)
+            {
+                _context.Logger.Info("开机自启已登记：" + startup.Command);
+            }
+            else if (startup.Changed)
+            {
+                _context.Logger.Info("开机自启已关闭。");
+            }
+
             if (warnings.Count > 0)
             {
                 MessageBox.Show(this,

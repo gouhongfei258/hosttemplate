@@ -34,8 +34,8 @@ namespace HostTemplate.Devices.Plc.Omron
             Name = "OmronFins";
             Address = $"{ipAddress}:{_fins.Port}";
             Device = _fins;
-            ConnectAction = () => _fins.ConnectServer();
-            CloseAction = () => _fins.ConnectClose();
+            ConnectAction = () => _fins.ConnectServerAsync();
+            CloseAction = () => _fins.ConnectCloseAsync();
         }
 
         /// <summary>底层 FINS 对象。DNA/DA2 等高级参数可直接改。</summary>

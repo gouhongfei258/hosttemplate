@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Threading;
 using System.Windows.Forms;
 using HostTemplate.App.Forms;
+using HostTemplate.App.Startup;
 using HostTemplate.App.Steps;
 using HostTemplate.App.Updates;
 using HostTemplate.Contracts;
@@ -15,6 +16,7 @@ using HostTemplate.Core.Configuration.Store;
 using HostTemplate.Core.Data;
 using HostTemplate.Core.Diagnostics;
 using HostTemplate.Core.Flow.Engine;
+using HostTemplate.Core.Runtime.Startup;
 using HostTemplate.Core.Runtime.State;
 using HostTemplate.Core.Security;
 using HostTemplate.Core.Updates;
@@ -213,6 +215,7 @@ namespace HostTemplate.App
             var engine = new StationEngine(context, DemoSteps.Create(store));
 
             logger.Info($"工站：{context.App.WorkStationName}（{context.App.EquId}），仿真模式={context.App.Simulate}");
+            ApplyWindowsStartup(logger, config.App.StartWithWindows);
 
             var autoStart = args != null && Array.IndexOf(args, "--autostart") >= 0;
             var updates = new StationUpdateController(
@@ -224,12 +227,111 @@ namespace HostTemplate.App
                 engine,
                 new VelopackUpdateInstaller(bootstrap.ServiceToken));
 
-            // 「实时数据」整页在这里交给工站。DemoLiveView 只是能跑起来的示例。
-            var realtimeView = new DemoLiveView(context.Live);
-            Application.Run(new MainForm(context, engine, realtimeView, CreatePlcClient, CreateApiClient, updates)
+            // 「实时数据」按 app.xml 的测试类型选择。空白、默认和未登记的名字都用 DemoLiveView。
+            // 其它类型在这里登记，页面可以是任意控件：
+            // LiveViewCatalog.Register("扭矩", ctx => new TorqueLiveView(ctx));
+            var realtimeView = LiveViewCatalog.Create(context);
+            var mainForm = new MainForm(context, engine, realtimeView, CreatePlcClient, CreateApiClient, updates, () => LiveViewCatalog.Create(context))
             {
                 AutoStart = autoStart,
-            });
+            };
+            var shortcuts = ApplyTaskbarShortcut(logger);
+            if (shortcuts.ShouldPin)
+            {
+                PinTaskbarShortcutWhenShown(mainForm, logger, shortcuts.PinPath);
+            }
+
+            Application.Run(mainForm);
+        }
+
+        private static ShortcutEnsureResult ApplyTaskbarShortcut(Log4NetLogger logger)
+        {
+            try
+            {
+                var result = WindowsTaskbarShortcut.Apply();
+                if (!result.Success)
+                {
+                    logger.Warn("任务栏快捷方式没有创建：" + result.Error);
+                    return result;
+                }
+
+                if (result.Skipped)
+                {
+                    logger.Info(string.IsNullOrWhiteSpace(result.Detail)
+                        ? "任务栏快捷方式已存在，跳过。"
+                        : "任务栏快捷方式已存在，跳过。" + result.Detail);
+                    return result;
+                }
+
+                logger.Info("任务栏快捷方式已写入：" + result.Target);
+                if (!string.IsNullOrWhiteSpace(result.Detail))
+                {
+                    logger.Info(result.Detail);
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                logger.Warn("创建任务栏快捷方式失败：" + ex.Message);
+                return ShortcutEnsureResult.Fail(ex.Message);
+            }
+        }
+
+        private static void PinTaskbarShortcutWhenShown(Form form, Log4NetLogger logger, string shortcutPath)
+        {
+            if (form == null || string.IsNullOrWhiteSpace(shortcutPath))
+            {
+                return;
+            }
+
+            void OnShown(object sender, EventArgs e)
+            {
+                form.Shown -= OnShown;
+
+                try
+                {
+                    if (WindowsTaskbarShortcut.TryPin(shortcutPath))
+                    {
+                        logger.Info("已请求把快捷方式钉到任务栏：" + shortcutPath);
+                        return;
+                    }
+
+                    logger.Info(WindowsTaskbarShortcut.PinLimitation + " 系统版本 " + Environment.OSVersion.Version + "。");
+                }
+                catch (Exception ex)
+                {
+                    logger.Warn("钉住任务栏失败，程序继续运行：" + ex.Message);
+                }
+            }
+
+            form.Shown += OnShown;
+        }
+
+        private static void ApplyWindowsStartup(Log4NetLogger logger, bool enabled)
+        {
+            try
+            {
+                var startup = WindowsAutoStart.Apply(enabled);
+                if (!startup.Success)
+                {
+                    logger.Warn("开机自启没有写进启动项：" + startup.Error);
+                    return;
+                }
+
+                if (enabled)
+                {
+                    logger.Info("开机自启已登记：" + startup.Command);
+                }
+                else if (startup.Changed)
+                {
+                    logger.Info("开机自启已关闭。");
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Warn("同步开机自启失败：" + ex.Message);
+            }
         }
 
         private static HttpClient CreateServiceHttp(BootstrapConfig bootstrap)

@@ -1,4 +1,7 @@
+using System.Threading;
+using System.Threading.Tasks;
 using HslCommunication.ModBus;
+using HostTemplate.Core.Abstractions;
 using HostTemplate.Devices.Hsl;
 
 namespace HostTemplate.Devices.Plc.Modbus
@@ -18,35 +21,35 @@ namespace HostTemplate.Devices.Plc.Modbus
             Name = name;
             Address = $"{device.IpAddress}:{device.Port}";
             Device = device;
-            ConnectAction = () => device.ConnectServer();
-            CloseAction = () => device.ConnectClose();
+            ConnectAction = () => device.ConnectServerAsync();
+            CloseAction = () => device.ConnectCloseAsync();
         }
 
         /// <summary>底层 Modbus 对象，需要调本类未封装的方法时用。</summary>
         public ModbusTcpNet Modbus => _modbus;
 
-        /// <summary>读线圈（0x 区），比通用的 ReadBool 语义更明确。</summary>
-        public bool ReadCoil(string address, out bool value, out string error)
+        /// <summary>读线圈（0x 区），比通用的 ReadBool 语义更明确。调用 HSL 的 ReadCoilAsync。</summary>
+        public Task<DeviceResult<bool>> ReadCoilAsync(string address, CancellationToken cancellationToken = default)
         {
-            return TryRead(address, () => _modbus.ReadCoil(address), out value, out error);
+            return TryReadAsync(address, () => _modbus.ReadCoilAsync(address), cancellationToken);
         }
 
-        /// <summary>读离散输入（1x 区）。</summary>
-        public bool ReadDiscrete(string address, out bool value, out string error)
+        /// <summary>读离散输入（1x 区）。调用 HSL 的 ReadDiscreteAsync。</summary>
+        public Task<DeviceResult<bool>> ReadDiscreteAsync(string address, CancellationToken cancellationToken = default)
         {
-            return TryRead(address, () => _modbus.ReadDiscrete(address), out value, out error);
+            return TryReadAsync(address, () => _modbus.ReadDiscreteAsync(address), cancellationToken);
         }
 
-        /// <summary>写单个保持寄存器（功能码 06）。</summary>
-        public bool WriteOneRegister(string address, ushort value, out string error)
+        /// <summary>写单个保持寄存器（功能码 06）。调用 HSL 的 WriteOneRegisterAsync。</summary>
+        public Task<DeviceResult> WriteOneRegisterAsync(string address, ushort value, CancellationToken cancellationToken = default)
         {
-            return TryWrite(address, () => _modbus.WriteOneRegister(address, value), out error);
+            return TryWriteAsync(address, () => _modbus.WriteOneRegisterAsync(address, value), cancellationToken);
         }
 
-        /// <summary>写掩码（功能码 22），改寄存器里的某几位而不影响其它位。</summary>
-        public bool WriteMask(string address, ushort andMask, ushort orMask, out string error)
+        /// <summary>写掩码（功能码 22），改寄存器里的某几位而不影响其它位。调用 HSL 的 WriteMaskAsync。</summary>
+        public Task<DeviceResult> WriteMaskAsync(string address, ushort andMask, ushort orMask, CancellationToken cancellationToken = default)
         {
-            return TryWrite(address, () => _modbus.WriteMask(address, andMask, orMask), out error);
+            return TryWriteAsync(address, () => _modbus.WriteMaskAsync(address, andMask, orMask), cancellationToken);
         }
     }
 }

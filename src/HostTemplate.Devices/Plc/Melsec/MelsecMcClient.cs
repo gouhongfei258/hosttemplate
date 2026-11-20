@@ -26,8 +26,8 @@ namespace HostTemplate.Devices.Plc.Melsec
             Name = "MelsecMc";
             Address = $"{ipAddress}:{_mc.Port}";
             Device = _mc;
-            ConnectAction = () => _mc.ConnectServer();
-            CloseAction = () => _mc.ConnectClose();
+            ConnectAction = () => _mc.ConnectServerAsync();
+            CloseAction = () => _mc.ConnectCloseAsync();
         }
 
         /// <summary>底层 MC 对象。网络号/PLC 号等参数可直接改。</summary>

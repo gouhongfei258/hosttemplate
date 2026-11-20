@@ -23,5 +23,7 @@
   <EnableLogin>false</EnableLogin>
   <SessionTimeoutMinutes>0</SessionTimeoutMinutes>
   <Theme>夜间</Theme>
+  <TestType>默认</TestType>
   <AutoUpdate>false</AutoUpdate>
+  <StartWithWindows>false</StartWithWindows>
 </AppConfig>

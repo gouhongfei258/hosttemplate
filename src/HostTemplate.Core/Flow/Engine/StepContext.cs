@@ -1,4 +1,5 @@
 using System.Threading;
+using System.Threading.Tasks;
 using HostTemplate.Core.Abstractions;
 using HostTemplate.Core.Configuration;
 using HostTemplate.Core.Diagnostics;
@@ -50,7 +51,7 @@ namespace HostTemplate.Core.Flow.Engine
         /// <summary>
         /// 按地址键读字符串，失败返回空串。
         /// </summary>
-        public string ReadPlcString(string key, int length)
+        public async Task<string> ReadPlcStringAsync(string key, int length, CancellationToken cancellationToken = default)
         {
             var address = Station.GetAddress(key);
             if (string.IsNullOrEmpty(address) || Plc == null)
@@ -58,13 +59,14 @@ namespace HostTemplate.Core.Flow.Engine
                 return string.Empty;
             }
 
-            return Plc.ReadString(address, length, out var value, out _) ? value : string.Empty;
+            var read = await Plc.ReadStringAsync(address, length, cancellationToken).ConfigureAwait(false);
+            return read.Success ? read.Value ?? string.Empty : string.Empty;
         }
 
         /// <summary>
         /// 按地址键写 Word，失败时自动置报警。
         /// </summary>
-        public bool WritePlcWord(string key, ushort value)
+        public async Task<bool> WritePlcWordAsync(string key, ushort value, CancellationToken cancellationToken = default)
         {
             var address = Station.GetAddress(key);
             if (string.IsNullOrEmpty(address) || Plc == null)
@@ -72,21 +74,22 @@ namespace HostTemplate.Core.Flow.Engine
                 return false;
             }
 
-            if (Plc.WriteWord(address, value, out var error))
+            var written = await Plc.WriteWordAsync(address, value, cancellationToken).ConfigureAwait(false);
+            if (written.Success)
             {
                 Alarms.Set($"写入失败:{key}", false);
                 return true;
             }
 
-            Alarms.Set($"写入失败:{key}", true, error);
-            Log.Error($"写入 {key}({address}) 失败：{error}");
+            Alarms.Set($"写入失败:{key}", true, written.Error);
+            Log.Error($"写入 {key}({address}) 失败：{written.Error}");
             return false;
         }
 
         /// <summary>
         /// 主动回写审查码（多数场景由引擎在步骤结束后统一回写，此方法供中间态使用）。
         /// </summary>
-        public bool WriteReview(ReviewCode code)
+        public async Task<bool> WriteReviewAsync(ReviewCode code, CancellationToken cancellationToken = default)
         {
             var address = Station.GetAddress(AddressKeys.ReviewResult);
             if (string.IsNullOrEmpty(address) || Plc == null)
@@ -95,7 +98,8 @@ namespace HostTemplate.Core.Flow.Engine
             }
 
             State.ReviewCode = (ushort)code;
-            return Plc.WriteWord(address, (ushort)code, out _);
+            var written = await Plc.WriteWordAsync(address, (ushort)code, cancellationToken).ConfigureAwait(false);
+            return written.Success;
         }
 
         /// <summary>
