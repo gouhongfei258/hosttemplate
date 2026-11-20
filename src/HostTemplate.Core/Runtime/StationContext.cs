@@ -38,6 +38,7 @@ namespace HostTemplate.Core.Runtime
             State = new StationState();
             Alarms = new AlarmManager();
             Trace = new ProcessTrace();
+            Live = new CycleLiveData();
             Session = UserSession.Anonymous;
         }
 
@@ -56,6 +57,12 @@ namespace HostTemplate.Core.Runtime
         public StationState State { get; }
 
         public ProcessTrace Trace { get; }
+
+        /// <summary>
+        /// 可选的当前周期数据袋。引擎不读写它，「实时数据」页也不必使用。
+        /// 工站若只要表格或曲线，可以自己往里面推；图像、标注、组合画面则完全不用它。
+        /// </summary>
+        public CycleLiveData Live { get; }
 
         /// <summary>当前登录会话。未启用登录时为匿名管理员，所有权限判断放行。</summary>
         public UserSession Session { get; set; }

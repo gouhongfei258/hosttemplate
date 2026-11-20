@@ -99,6 +99,37 @@ namespace HostTemplate.Tests
         }
 
         [Fact]
+        public async Task Engine_ShouldLeaveRealtimeDataToTheStation()
+        {
+            var context = CreateContext();
+            var fake = new FakePlcClient("MW200");
+            context.PlcClient = fake;
+            context.Live.PublishItem("旧项目", "1", "9", true);
+            context.Live.PublishPoint("旧曲线", 0, 1);
+            context.Live.PublishVerdict(true, "旧结论");
+
+            var step = new RecordingStep(ProcessWords.InStation)
+            {
+                ResultToReturn = StepResult.Ng(ReviewCode.NG_InStation, "长度不符"),
+            };
+
+            using (var engine = new StationEngine(context, new IStationStep[] { step }))
+            {
+                await engine.StartAsync();
+                fake.SetWords("MW200", ProcessWords.InStation, 0);
+                Assert.True(await WaitUntil(() => step.Count > 0 && context.State.NgCount == 1));
+                await engine.StopAsync();
+            }
+
+            var snapshot = context.Live.Snapshot();
+            Assert.Equal(ProductVerdict.Ok, snapshot.Verdict);
+            Assert.Equal("旧结论", snapshot.Reason);
+            Assert.Equal("旧项目", snapshot.Rows[0].ItemName);
+            Assert.Single(snapshot.Series);
+            Assert.Equal(1, context.State.NgCount);
+        }
+
+        [Fact]
         public async Task Engine_ShouldReportErrorWhenCommandAddressMissing()
         {
             var context = CreateContext(manager => manager.Plc.Addresses.Clear());
@@ -142,12 +173,34 @@ namespace HostTemplate.Tests
 
             public int Count => _count;
 
+            public Action<StepContext> BeforeComplete { get; set; }
+
+            public StepResult ResultToReturn { get; set; }
+
             public Task<StepResult> ExecuteAsync(StepContext context)
             {
                 Interlocked.Increment(ref _count);
+                BeforeComplete?.Invoke(context);
                 Done.Set();
-                return Task.FromResult(StepResult.Ok(ReviewCode.OK_InStation));
+                return Task.FromResult(ResultToReturn ?? StepResult.Ok(ReviewCode.OK_InStation));
             }
+        }
+
+        private static async Task<bool> WaitUntil(Func<bool> condition, int timeoutMs = 3000)
+        {
+            var start = Environment.TickCount;
+
+            while (unchecked(Environment.TickCount - start) < timeoutMs)
+            {
+                if (condition())
+                {
+                    return true;
+                }
+
+                await Task.Delay(20);
+            }
+
+            return condition();
         }
 
         private sealed class CollectingLogger : IAppLogger

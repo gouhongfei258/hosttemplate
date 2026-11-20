@@ -63,6 +63,9 @@ namespace HostTemplate.Tests
             Assert.Single(rows);
             Assert.Equal("DEMO00000000000001", rows[0].SnNumber);
             Assert.True(rows[0].Result);
+            Assert.Single(rows[0].Items);
+            Assert.Equal("电压", rows[0].Items[0].ItemName);
+            Assert.Equal("12.0", rows[0].Items[0].Value);
         }
 
         [Fact]

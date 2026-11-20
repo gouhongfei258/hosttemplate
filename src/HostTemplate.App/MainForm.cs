@@ -1,9 +1,12 @@
 using System;
+using System.Collections.Generic;
+using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using HostTemplate.App.Controls;
 using HostTemplate.App.Forms;
 using HostTemplate.Core.Abstractions;
+using HostTemplate.Core.Diagnostics;
 using HostTemplate.Core.Flow;
 using HostTemplate.Core.Runtime;
 using HostTemplate.Core.Security;
@@ -12,6 +15,7 @@ namespace HostTemplate.App
 {
     /// <summary>
     /// 监控主界面。只做展示与指令下发，业务全部在 StationEngine / IStationStep 里。
+    /// 「实时数据」页整页由构造时传入的控件决定，这里不假定它是表格、曲线还是图像。
     /// </summary>
     public partial class MainForm : Form
     {
@@ -19,8 +23,10 @@ namespace HostTemplate.App
         private readonly StationEngine _engine;
         private readonly UiLogSink _logSink;
         private readonly Timer _refreshTimer;
+        private readonly ToolTip _alarmTip;
         private readonly Func<StationContext, IPlcClient> _plcFactory;
         private readonly Func<StationContext, IApiClient> _apiFactory;
+        private readonly string _versionText;
 
         private int _tick;
         private bool _apiChecking;
@@ -31,21 +37,33 @@ namespace HostTemplate.App
         public MainForm(
             StationContext context,
             StationEngine engine,
+            Control realtimeView,
             Func<StationContext, IPlcClient> plcFactory = null,
             Func<StationContext, IApiClient> apiFactory = null)
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _engine = engine ?? throw new ArgumentNullException(nameof(engine));
+            if (realtimeView == null)
+            {
+                throw new ArgumentNullException(nameof(realtimeView), "「实时数据」页由工站自己提供。");
+            }
+
             _plcFactory = plcFactory;
             _apiFactory = apiFactory;
+            _versionText = ReadDisplayVersion();
 
             InitializeComponent();
+            realtimeView.Dock = DockStyle.Fill;
+            pageRealtime.Controls.Add(realtimeView);
 
             _logSink = new UiLogSink(rtbLog);
             _context.Logger.Written += (s, e) => _logSink.Enqueue(e);
 
             _engine.StatusChanged += OnEngineStatusChanged;
             _engine.StepExecuted += OnStepExecuted;
+            _context.Alarms.Changed += OnAlarmChanged;
+
+            _alarmTip = new ToolTip();
 
             _refreshTimer = new Timer { Interval = 300 };
             _refreshTimer.Tick += (s, e) => RefreshState();
@@ -71,7 +89,8 @@ namespace HostTemplate.App
                 ? $"{plcInfo}　|　{_context.Session.DisplayName}（{_context.Session.Role}）"
                 : plcInfo;
 
-            Text = $"上位机模板 · {_context.App.WorkStationName}";
+            lblVersion.Text = "v" + _versionText;
+            Text = $"上位机模板 · {_context.App.WorkStationName} · v{_versionText}";
         }
 
         private void RefreshState()
@@ -101,6 +120,7 @@ namespace HostTemplate.App
                 : $"轨迹：{trace}　执行中：{state.RunningStep}";
 
             lblCount.Text = $"良品 {state.CycleCount} / 不良 {state.NgCount}";
+            RefreshAlarmBanner();
 
             _tick++;
             if (_tick % 20 == 0 && !_apiChecking)
@@ -136,6 +156,147 @@ namespace HostTemplate.App
             }
         }
 
+        private void RefreshAlarmBanner()
+        {
+            var active = new List<AlarmItem>();
+
+            foreach (var item in _context.Alarms.Snapshot())
+            {
+                if (item.Active)
+                {
+                    active.Add(item);
+                }
+            }
+
+            active.Sort((a, b) => b.RaisedAt.CompareTo(a.RaisedAt));
+
+            if (active.Count == 0)
+            {
+                ApplyAlarmBanner(
+                    System.Drawing.Color.FromArgb(17, 24, 39),
+                    System.Drawing.Color.FromArgb(74, 222, 128),
+                    "无程序报警",
+                    "当前没有程序报警");
+                return;
+            }
+
+            var parts = new List<string>(active.Count);
+
+            foreach (var item in active)
+            {
+                parts.Add(FormatAlarm(item));
+            }
+
+            var text = "程序报警　" + string.Join("；", parts);
+            ApplyAlarmBanner(
+                System.Drawing.Color.FromArgb(127, 29, 29),
+                System.Drawing.Color.FromArgb(254, 242, 242),
+                text,
+                text);
+        }
+
+        private void ApplyAlarmBanner(System.Drawing.Color back, System.Drawing.Color fore, string text, string tip)
+        {
+            if (panelAlarm.BackColor != back)
+            {
+                panelAlarm.BackColor = back;
+            }
+
+            if (lblAlarm.ForeColor != fore)
+            {
+                lblAlarm.ForeColor = fore;
+            }
+
+            if (lblAlarm.Text != text)
+            {
+                lblAlarm.Text = text;
+            }
+
+            _alarmTip.SetToolTip(lblAlarm, tip);
+        }
+
+        private static string FormatAlarm(AlarmItem item)
+        {
+            if (string.IsNullOrWhiteSpace(item.Message) || string.Equals(item.Message, item.Key, StringComparison.Ordinal))
+            {
+                return item.Key;
+            }
+
+            return item.Key + "：" + item.Message;
+        }
+
+        private void OnAlarmChanged(object sender, AlarmChangedEventArgs e)
+        {
+            var activated = e != null && e.Activated;
+            RunOnUi(() =>
+            {
+                RefreshAlarmBanner();
+
+                if (activated)
+                {
+                    ShowRealtimeTab();
+                }
+            });
+        }
+
+        private void ShowRealtimeTab()
+        {
+            if (tabMain.SelectedTab != pageRealtime)
+            {
+                tabMain.SelectedTab = pageRealtime;
+            }
+        }
+
+        private void RunOnUi(Action action)
+        {
+            if (action == null || IsDisposed || !IsHandleCreated)
+            {
+                return;
+            }
+
+            try
+            {
+                if (InvokeRequired)
+                {
+                    BeginInvoke(action);
+                    return;
+                }
+
+                action();
+            }
+            catch (ObjectDisposedException)
+            {
+                // 关闭窗口时后台线程还可能推一次状态。
+            }
+        }
+
+        private static string ReadDisplayVersion()
+        {
+            var assembly = typeof(MainForm).Assembly;
+            var informational = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+
+            if (string.IsNullOrWhiteSpace(informational))
+            {
+                var version = assembly.GetName().Version;
+                return version == null ? "1.0.0" : version.ToString(3);
+            }
+
+            var plus = informational.IndexOf('+');
+            if (plus < 0)
+            {
+                return informational;
+            }
+
+            var head = informational.Substring(0, plus);
+            var tail = informational.Substring(plus + 1);
+            if (tail.Length > 7)
+            {
+                tail = tail.Substring(0, 7);
+            }
+
+            return string.IsNullOrEmpty(tail) ? head : head + "+" + tail;
+        }
+
         private void OnEngineStatusChanged(object sender, EngineStatusEventArgs e)
         {
             if (string.IsNullOrEmpty(e.Message))
@@ -149,6 +310,11 @@ namespace HostTemplate.App
         private void OnStepExecuted(object sender, StepExecutedEventArgs e)
         {
             _context.Logger.Debug($"[步骤] {e.Word} {e.StepName} {(e.Result?.Success == true ? "OK" : "NG")} {e.ElapsedMs}ms");
+
+            if (e.Result != null && !e.Result.Success)
+            {
+                RunOnUi(ShowRealtimeTab);
+            }
         }
 
         private async void BtnStart_Click(object sender, EventArgs e)
@@ -337,6 +503,7 @@ namespace HostTemplate.App
         protected override async void OnFormClosing(FormClosingEventArgs e)
         {
             _refreshTimer.Stop();
+            _context.Alarms.Changed -= OnAlarmChanged;
 
             try
             {
@@ -347,6 +514,7 @@ namespace HostTemplate.App
                 // 关闭阶段忽略停止异常。
             }
 
+            _alarmTip.Dispose();
             _logSink.Dispose();
             base.OnFormClosing(e);
         }

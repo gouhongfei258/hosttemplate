@@ -36,6 +36,11 @@ namespace HostTemplate.Core.Flow
 
         public ProcessTrace Trace => Station.Trace;
 
+        /// <summary>
+        /// 可选的当前周期数据袋。页面不读它也完全可以。
+        /// </summary>
+        public CycleLiveData Live => Station.Live;
+
         public AppConfig App => Station.App;
 
         public PlcConfig PlcConfig => Station.Plc;
@@ -89,6 +94,32 @@ namespace HostTemplate.Core.Flow
 
             State.ReviewCode = (ushort)code;
             return Plc.WriteWord(address, (ushort)code, out _);
+        }
+
+        /// <summary>
+        /// 可选：写入或更新当前周期的一行（项目 / 标准 / 实测 / 合格）。同名项目覆盖。
+        /// 实时页面不必是表格。
+        /// </summary>
+        public void PublishItem(string itemName, string standard, string value, bool passed)
+        {
+            Live.PublishItem(itemName, standard, value, passed);
+        }
+
+        /// <summary>
+        /// 可选：给当前周期的一条曲线追加一个点。新的一件开始前由工站自己 <see cref="CycleLiveData.BeginCycle"/>。
+        /// </summary>
+        public void PublishPoint(string seriesName, double x, double y)
+        {
+            Live.PublishPoint(seriesName, x, y);
+        }
+
+        /// <summary>
+        /// 可选：记下当前产品结论。本周期一旦 NG，后续 OK 不会盖掉。
+        /// 怎么画由工站自己的页面决定，引擎不补这一笔。
+        /// </summary>
+        public void PublishVerdict(bool passed, string reason)
+        {
+            Live.PublishVerdict(passed, reason);
         }
     }
 }

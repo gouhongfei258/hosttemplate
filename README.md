@@ -12,7 +12,7 @@
 | 数据 | EF Core 8.0.1 + Microsoft.Data.Sqlite | 替代 EF6 + SQLite.CodeFirst（不支持 .NET 8） |
 | 日志 | log4net 3.3.0 | 落盘 + 事件推送界面（3.0.3 有 CVE-2026-40021，必须 ≥ 3.3.0） |
 | 配置 | XML + `XmlSerializer` + `PropertyGrid` | 现场可直接改、可可视化编辑 |
-| 测试 | xunit | 引擎/配置/轨迹/落库/鉴权/设备共 57 个用例 |
+| 测试 | xunit | 引擎/配置/轨迹/落库/鉴权/设备/实时数据共 63 个用例 |
 
 ## 2. 目录
 
@@ -25,7 +25,7 @@ HostTemplate/
 │  │  ├─ Configuration/           AppConfig / PlcConfig / ApiConfig / ConfigManager / XmlConfigStore
 │  │  ├─ Diagnostics/             IAppLogger / Log4NetLogger / AlarmManager
 │  │  ├─ Flow/                    StationEngine / IStationStep / StepContext / ProcessTrace
-│  │  ├─ Runtime/                 StationContext（取代 static Global）/ StationState
+│  │  ├─ Runtime/                 StationContext（取代 static Global）/ StationState / CycleLiveData（可选）
 │  │  ├─ Security/                AuthService（PBKDF2）/ UserAccount / UserSession
 │  │  └─ Data/                    HostDbContext / TestDataStore / 实体
 │  ├─ HostTemplate.Devices/       具体协议实现
@@ -35,10 +35,11 @@ HostTemplate/
 │  │  └─ Tcp/                     TcpDeviceBase（打印机/扫码枪/仪器基类）
 │  └─ HostTemplate.App/           WinForms 主程序
 │     ├─ Program.cs               启动装配：单实例 → 日志 → 配置 → 上下文 → 登录 → 设备 → 引擎 → 界面
-│     ├─ MainForm.cs              监控台（状态灯 / 流程字 / 日志 / 按钮）
+│     ├─ MainForm.cs              监控台（状态灯 / 流程字 / 实时数据 / 日志 / 报警条）
 │     ├─ Forms/                   ConfigForm（配置）/ UserForm（账号）/ LoginForm / ChangePasswordForm
-│     ├─ Steps/DemoSteps.cs       示例工站：四个步骤四个类
+│     ├─ Steps/                   DemoSteps.cs / DemoLiveView.cs（示例页，整页可换）
 │     └─ Controls/                StatusLight / UiLogSink
+├─ .github/workflows/release.yml  合并到 main 后发布 GitHub Release
 └─ tests/HostTemplate.Tests/
 ```
 
@@ -66,6 +67,35 @@ dotnet run --project src/HostTemplate.App -- --simulate --autostart
 - **统一回写**：步骤返回 `StepResult`，引擎负责写审查码、记轨迹、统计良率。
 - **失败不阻断**：通信失败只置报警并断开，下一轮自动重连（带间隔节流）。
 - **地址解耦**：引擎只认 `AddressKeys` 里的键名，换点位只改 `plc.xml`。
+- **不管画面**：引擎不填写实时页面。产品结论怎么画由工站自己的控件决定。程序报警走 `AlarmManager`，主界面只负责把报警条亮出来。
+
+## 4.1 主界面
+
+上半部分仍是工站身份：顶栏状态灯，下面是流程字 / SN / 托盘 / 轨迹 / 良品不良计数。中间是两个页签，底栏按钮不动。
+
+| 区域 | 谁负责 |
+|---|---|
+| 报警条 | 模板。在身份条和页签之间，始终可见。无报警显示「无程序报警」，有报警显示当前故障。新的程序报警，或步骤返回 NG，会自动切到「实时数据」 |
+| 实时数据 | **工站整页自己写**。表格、曲线、视觉标注、几种形式拼在一起，都是这个控件里的事。`MainForm` 只把它 Dock 满这一页 |
+| 运行日志 | 模板。原来的日志框 |
+
+在 `Program.cs` 里把控件交进去。仓库自带的 `DemoLiveView` 只是让模板能跑起来的示例（大号 OK/NG + 表格 + 一条示例曲线），换掉这一行即可，不用改引擎：
+
+```csharp
+var realtimeView = new MyStationView();   // 图像标注、组合画面，或任何 WinForms 控件
+Application.Run(new MainForm(context, engine, realtimeView, CreatePlcClient, CreateApiClient));
+```
+
+`CycleLiveData` 是可选的数据袋，不是页面契约。示例工站用它推测试项、曲线点和产品结论，并在进站时自己 `BeginCycle()`。不做历史查询页，落库仍走 `TestDataStore`。不用这个袋子的页面完全可以不引用它。
+
+```csharp
+context.Live.BeginCycle();
+context.PublishItem("电压", "11.5 ~ 12.5", "12.01", true);
+context.PublishPoint("电压曲线", t, 12.01);
+context.PublishVerdict(true, "合格");   // 本周期一旦 NG，后面的 OK 不会盖掉
+```
+
+窗口标题和右下角显示程序版本。
 
 ## 5. 新增一个工站步骤
 
@@ -262,8 +292,14 @@ if (!context.Session.HasRole(UserRole.工程师)) { /* 拒绝 */ }
 
 ## 11. 尚未包含（后续阶段）
 
-- 数据查询页、日志查询页、返修换绑页
+- 历史数据查询页、日志查询页、返修换绑页（主界面只有当前周期，见 4.1）
 - 打印（Zebra ZPL）、扫码枪、视觉、指纹
 - Velopack 打包与在线更新
 - 串口类 PLC（HSL 的 `SerialBase` 家族，接法与 8.3 同构）
 - 已在模板里的 PLC 品牌：西门子 S7 / Modbus TCP / 汇川 / 台达 / 三菱 MC / 欧姆龙 FINS；其余品牌按 8.3 两步接入
+
+## 12. 合并后的 GitHub Release
+
+`.github/workflows/release.yml` 在推送到 `main`（PR 合并的常规结果）时，于 `windows-latest` 上用 .NET 8 跑测试，再 `dotnet publish` 到运行器临时目录。校验版本后打成 zip，创建 GitHub Release（标签 `v1.0.<run_number>`，说明里带短提交号），并把 zip 挂到该 Release。不往仓库提交二进制，也不在项目里留 `release/` 或 `publish/` 目录。
+
+版本不提交回仓库。`Directory.Build.props` 固定主次版本 `1.0`，补丁默认 `0`，所以本机 `dotnet build` 的文件版本 / 程序集版本仍是 `1.0.0`。CI 用 `github.run_number` 作为补丁，并把 7 位提交号写入 `InformationalVersion`（例如 `1.0.42+abcdef0`）。标签只用 `v1.0.42`，不加 `+` 后面的提交号。在 git 工作副本里本地编译时，SDK 还会把完整提交号附在 `1.0.0+...` 上，数值版本不变。主界面标题和右下角显示的就是这个版本。
