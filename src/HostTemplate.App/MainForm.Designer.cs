@@ -18,6 +18,7 @@ namespace HostTemplate.App
         {
             this.panelTop = new System.Windows.Forms.Panel();
             this.panelInfo = new System.Windows.Forms.Panel();
+            this.panelAlarm = new System.Windows.Forms.Panel();
             this.panelBottom = new System.Windows.Forms.Panel();
             this.lblStation = new System.Windows.Forms.Label();
             this.lblSub = new System.Windows.Forms.Label();
@@ -31,6 +32,10 @@ namespace HostTemplate.App
             this.lblTray = new System.Windows.Forms.Label();
             this.lblStep = new System.Windows.Forms.Label();
             this.lblCount = new System.Windows.Forms.Label();
+            this.lblAlarm = new System.Windows.Forms.Label();
+            this.tabMain = new Sunny.UI.UITabControl();
+            this.pageRealtime = new System.Windows.Forms.TabPage();
+            this.pageLog = new System.Windows.Forms.TabPage();
             this.rtbLog = new System.Windows.Forms.RichTextBox();
             this.btnStart = new Sunny.UI.UIButton();
             this.btnStop = new Sunny.UI.UIButton();
@@ -38,14 +43,17 @@ namespace HostTemplate.App
             this.btnConfig = new Sunny.UI.UIButton();
             this.btnUser = new Sunny.UI.UIButton();
             this.lblHint = new System.Windows.Forms.Label();
+            this.lblVersion = new System.Windows.Forms.Label();
             this.panelTop.SuspendLayout();
             this.panelInfo.SuspendLayout();
+            this.panelAlarm.SuspendLayout();
+            this.tabMain.SuspendLayout();
+            this.pageLog.SuspendLayout();
             this.panelBottom.SuspendLayout();
             this.SuspendLayout();
             //
             // panelTop
             //
-            this.panelTop.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) | System.Windows.Forms.AnchorStyles.Right)));
             this.panelTop.BackColor = System.Drawing.Color.FromArgb(17, 24, 39);
             this.panelTop.Controls.Add(this.lblStation);
             this.panelTop.Controls.Add(this.lblSub);
@@ -53,6 +61,7 @@ namespace HostTemplate.App
             this.panelTop.Controls.Add(this.lightApi);
             this.panelTop.Controls.Add(this.lightAlarm);
             this.panelTop.Controls.Add(this.lightRun);
+            this.panelTop.Dock = System.Windows.Forms.DockStyle.Top;
             this.panelTop.Location = new System.Drawing.Point(0, 0);
             this.panelTop.Name = "panelTop";
             this.panelTop.Size = new System.Drawing.Size(1184, 80);
@@ -132,7 +141,6 @@ namespace HostTemplate.App
             //
             // panelInfo
             //
-            this.panelInfo.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) | System.Windows.Forms.AnchorStyles.Right)));
             this.panelInfo.BackColor = System.Drawing.Color.FromArgb(15, 23, 42);
             this.panelInfo.Controls.Add(this.lblWord);
             this.panelInfo.Controls.Add(this.lblWordName);
@@ -140,6 +148,7 @@ namespace HostTemplate.App
             this.panelInfo.Controls.Add(this.lblTray);
             this.panelInfo.Controls.Add(this.lblStep);
             this.panelInfo.Controls.Add(this.lblCount);
+            this.panelInfo.Dock = System.Windows.Forms.DockStyle.Top;
             this.panelInfo.Location = new System.Drawing.Point(0, 80);
             this.panelInfo.Name = "panelInfo";
             this.panelInfo.Size = new System.Drawing.Size(1184, 132);
@@ -212,26 +221,90 @@ namespace HostTemplate.App
             this.lblCount.Text = "良品 0 / 不良 0";
             this.lblCount.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             //
+            // panelAlarm
+            //
+            this.panelAlarm.BackColor = System.Drawing.Color.FromArgb(17, 24, 39);
+            this.panelAlarm.Controls.Add(this.lblAlarm);
+            this.panelAlarm.Dock = System.Windows.Forms.DockStyle.Top;
+            this.panelAlarm.Location = new System.Drawing.Point(0, 212);
+            this.panelAlarm.Name = "panelAlarm";
+            this.panelAlarm.Padding = new System.Windows.Forms.Padding(16, 0, 12, 0);
+            this.panelAlarm.Size = new System.Drawing.Size(1184, 40);
+            this.panelAlarm.TabIndex = 2;
+            //
+            // lblAlarm
+            //
+            this.lblAlarm.AutoEllipsis = true;
+            this.lblAlarm.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblAlarm.Font = new System.Drawing.Font("Microsoft YaHei UI", 11F, System.Drawing.FontStyle.Bold);
+            this.lblAlarm.ForeColor = System.Drawing.Color.FromArgb(74, 222, 128);
+            this.lblAlarm.Location = new System.Drawing.Point(16, 0);
+            this.lblAlarm.Name = "lblAlarm";
+            this.lblAlarm.Size = new System.Drawing.Size(1156, 40);
+            this.lblAlarm.TabIndex = 0;
+            this.lblAlarm.Text = "无程序报警";
+            this.lblAlarm.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
+            // tabMain
+            //
+            this.tabMain.Controls.Add(this.pageRealtime);
+            this.tabMain.Controls.Add(this.pageLog);
+            this.tabMain.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tabMain.DrawMode = System.Windows.Forms.TabDrawMode.OwnerDrawFixed;
+            this.tabMain.FillColor = System.Drawing.Color.FromArgb(11, 18, 32);
+            this.tabMain.Font = new System.Drawing.Font("Microsoft YaHei UI", 10F);
+            this.tabMain.ItemSize = new System.Drawing.Size(128, 40);
+            this.tabMain.Location = new System.Drawing.Point(0, 252);
+            this.tabMain.Name = "tabMain";
+            this.tabMain.SelectedIndex = 0;
+            this.tabMain.Size = new System.Drawing.Size(1184, 421);
+            this.tabMain.SizeMode = System.Windows.Forms.TabSizeMode.Fixed;
+            this.tabMain.StyleCustomMode = true;
+            this.tabMain.TabBackColor = System.Drawing.Color.FromArgb(17, 24, 39);
+            this.tabMain.TabIndex = 3;
+            this.tabMain.TabSelectedColor = System.Drawing.Color.FromArgb(15, 23, 42);
+            this.tabMain.TabSelectedForeColor = System.Drawing.Color.FromArgb(56, 189, 248);
+            this.tabMain.TabSelectedHighColor = System.Drawing.Color.FromArgb(56, 189, 248);
+            this.tabMain.TabUnSelectedForeColor = System.Drawing.Color.FromArgb(156, 163, 175);
+            //
+            // pageRealtime
+            //
+            this.pageRealtime.BackColor = System.Drawing.Color.FromArgb(11, 18, 32);
+            this.pageRealtime.Location = new System.Drawing.Point(0, 40);
+            this.pageRealtime.Name = "pageRealtime";
+            this.pageRealtime.Size = new System.Drawing.Size(1184, 381);
+            this.pageRealtime.TabIndex = 0;
+            this.pageRealtime.Text = "实时数据";
+            //
+            // pageLog
+            //
+            this.pageLog.BackColor = System.Drawing.Color.FromArgb(11, 18, 32);
+            this.pageLog.Controls.Add(this.rtbLog);
+            this.pageLog.Location = new System.Drawing.Point(0, 40);
+            this.pageLog.Name = "pageLog";
+            this.pageLog.Size = new System.Drawing.Size(1184, 381);
+            this.pageLog.TabIndex = 1;
+            this.pageLog.Text = "运行日志";
+            //
             // rtbLog
             //
-            this.rtbLog.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) | System.Windows.Forms.AnchorStyles.Left) | System.Windows.Forms.AnchorStyles.Right)));
             this.rtbLog.BackColor = System.Drawing.Color.FromArgb(11, 18, 32);
             this.rtbLog.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            this.rtbLog.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rtbLog.Font = new System.Drawing.Font("Consolas", 10F);
             this.rtbLog.ForeColor = System.Drawing.Color.FromArgb(209, 213, 219);
             this.rtbLog.HideSelection = false;
-            this.rtbLog.Location = new System.Drawing.Point(0, 212);
+            this.rtbLog.Location = new System.Drawing.Point(0, 0);
             this.rtbLog.Name = "rtbLog";
             this.rtbLog.ReadOnly = true;
             this.rtbLog.ScrollBars = System.Windows.Forms.RichTextBoxScrollBars.Vertical;
-            this.rtbLog.Size = new System.Drawing.Size(1184, 461);
-            this.rtbLog.TabIndex = 2;
+            this.rtbLog.Size = new System.Drawing.Size(1184, 381);
+            this.rtbLog.TabIndex = 0;
             this.rtbLog.Text = "";
             this.rtbLog.WordWrap = false;
             //
             // panelBottom
             //
-            this.panelBottom.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) | System.Windows.Forms.AnchorStyles.Right)));
             this.panelBottom.BackColor = System.Drawing.Color.FromArgb(17, 24, 39);
             this.panelBottom.Controls.Add(this.btnStart);
             this.panelBottom.Controls.Add(this.btnStop);
@@ -239,10 +312,12 @@ namespace HostTemplate.App
             this.panelBottom.Controls.Add(this.btnConfig);
             this.panelBottom.Controls.Add(this.btnUser);
             this.panelBottom.Controls.Add(this.lblHint);
+            this.panelBottom.Controls.Add(this.lblVersion);
+            this.panelBottom.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.panelBottom.Location = new System.Drawing.Point(0, 673);
             this.panelBottom.Name = "panelBottom";
             this.panelBottom.Size = new System.Drawing.Size(1184, 68);
-            this.panelBottom.TabIndex = 3;
+            this.panelBottom.TabIndex = 4;
             //
             // btnStart
             //
@@ -311,38 +386,57 @@ namespace HostTemplate.App
             //
             // lblHint
             //
-            this.lblHint.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.lblHint.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) | System.Windows.Forms.AnchorStyles.Right)));
+            this.lblHint.AutoEllipsis = true;
             this.lblHint.Font = new System.Drawing.Font("Microsoft YaHei UI", 9F);
             this.lblHint.ForeColor = System.Drawing.Color.FromArgb(107, 114, 128);
-            this.lblHint.Location = new System.Drawing.Point(860, 24);
+            this.lblHint.Location = new System.Drawing.Point(690, 24);
             this.lblHint.Name = "lblHint";
-            this.lblHint.Size = new System.Drawing.Size(240, 22);
+            this.lblHint.Size = new System.Drawing.Size(310, 22);
             this.lblHint.TabIndex = 5;
             this.lblHint.Text = "HostTemplate";
             this.lblHint.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            //
+            // lblVersion
+            //
+            this.lblVersion.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.lblVersion.AutoEllipsis = true;
+            this.lblVersion.Font = new System.Drawing.Font("Consolas", 9F);
+            this.lblVersion.ForeColor = System.Drawing.Color.FromArgb(156, 163, 175);
+            this.lblVersion.Location = new System.Drawing.Point(1004, 24);
+            this.lblVersion.Name = "lblVersion";
+            this.lblVersion.Size = new System.Drawing.Size(164, 22);
+            this.lblVersion.TabIndex = 6;
+            this.lblVersion.Text = "v1.0.0";
+            this.lblVersion.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             //
             // MainForm
             //
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.BackColor = System.Drawing.Color.FromArgb(11, 18, 32);
             this.ClientSize = new System.Drawing.Size(1184, 741);
-            this.Controls.Add(this.panelTop);
-            this.Controls.Add(this.panelInfo);
-            this.Controls.Add(this.rtbLog);
+            this.Controls.Add(this.tabMain);
             this.Controls.Add(this.panelBottom);
+            this.Controls.Add(this.panelAlarm);
+            this.Controls.Add(this.panelInfo);
+            this.Controls.Add(this.panelTop);
             this.Font = new System.Drawing.Font("Microsoft YaHei UI", 9F);
-            this.MinimumSize = new System.Drawing.Size(1000, 680);
+            this.MinimumSize = new System.Drawing.Size(1000, 720);
             this.Name = "MainForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "上位机模板 · 监控";
             this.panelTop.ResumeLayout(false);
             this.panelInfo.ResumeLayout(false);
+            this.panelAlarm.ResumeLayout(false);
+            this.pageLog.ResumeLayout(false);
+            this.tabMain.ResumeLayout(false);
             this.panelBottom.ResumeLayout(false);
             this.ResumeLayout(false);
         }
 
         private System.Windows.Forms.Panel panelTop;
         private System.Windows.Forms.Panel panelInfo;
+        private System.Windows.Forms.Panel panelAlarm;
         private System.Windows.Forms.Panel panelBottom;
         private System.Windows.Forms.Label lblStation;
         private System.Windows.Forms.Label lblSub;
@@ -356,6 +450,10 @@ namespace HostTemplate.App
         private System.Windows.Forms.Label lblTray;
         private System.Windows.Forms.Label lblStep;
         private System.Windows.Forms.Label lblCount;
+        private System.Windows.Forms.Label lblAlarm;
+        private Sunny.UI.UITabControl tabMain;
+        private System.Windows.Forms.TabPage pageRealtime;
+        private System.Windows.Forms.TabPage pageLog;
         private System.Windows.Forms.RichTextBox rtbLog;
         private Sunny.UI.UIButton btnStart;
         private Sunny.UI.UIButton btnStop;
@@ -363,5 +461,6 @@ namespace HostTemplate.App
         private Sunny.UI.UIButton btnConfig;
         private Sunny.UI.UIButton btnUser;
         private System.Windows.Forms.Label lblHint;
+        private System.Windows.Forms.Label lblVersion;
     }
 }

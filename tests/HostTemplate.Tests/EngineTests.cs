@@ -99,6 +99,69 @@ namespace HostTemplate.Tests
         }
 
         [Fact]
+        public async Task Engine_ShouldResetLiveDataWhenInStationStarts()
+        {
+            var context = CreateContext();
+            var fake = new FakePlcClient("MW200");
+            context.PlcClient = fake;
+            context.State.SerialNumber = "OLD-SN";
+            context.Live.RememberSerialNumber("OLD-SN");
+            context.Live.PublishItem("旧项目", "1", "9", false);
+            context.Live.PublishPoint("旧曲线", 0, 1);
+            context.Live.PublishVerdict(false, "旧不良");
+
+            var step = new RecordingStep(ProcessWords.InStation)
+            {
+                BeforeComplete = ctx =>
+                {
+                    ctx.State.SerialNumber = "NEW-SN";
+                    ctx.PublishItem("电压", "11.5~12.5", "12.0", true);
+                },
+            };
+
+            using (var engine = new StationEngine(context, new IStationStep[] { step }))
+            {
+                await engine.StartAsync();
+                fake.SetWords("MW200", ProcessWords.InStation, 0);
+                Assert.True(await WaitUntil(() => step.Count > 0));
+                await engine.StopAsync();
+            }
+
+            var snapshot = context.Live.Snapshot();
+            Assert.Equal(ProductVerdict.None, snapshot.Verdict);
+            Assert.Equal("NEW-SN", snapshot.SerialNumber);
+            Assert.Single(snapshot.Rows);
+            Assert.Equal("电压", snapshot.Rows[0].ItemName);
+            Assert.Empty(snapshot.Series);
+        }
+
+        [Fact]
+        public async Task Engine_ShouldPublishProductNgWhenStepFails()
+        {
+            var context = CreateContext();
+            var fake = new FakePlcClient("MW200");
+            context.PlcClient = fake;
+
+            var step = new RecordingStep(ProcessWords.TestStart)
+            {
+                ResultToReturn = StepResult.Ng(ReviewCode.NG_TestStart, "未读到 SN"),
+            };
+
+            using (var engine = new StationEngine(context, new IStationStep[] { step }))
+            {
+                await engine.StartAsync();
+                fake.SetWords("MW200", ProcessWords.TestStart, 0);
+                Assert.True(await WaitUntil(() => context.Live.Snapshot().Verdict == ProductVerdict.Ng));
+                await engine.StopAsync();
+            }
+
+            var snapshot = context.Live.Snapshot();
+            Assert.Equal(ProductVerdict.Ng, snapshot.Verdict);
+            Assert.Equal("未读到 SN", snapshot.Reason);
+            Assert.Equal(1, context.State.NgCount);
+        }
+
+        [Fact]
         public async Task Engine_ShouldReportErrorWhenCommandAddressMissing()
         {
             var context = CreateContext(manager => manager.Plc.Addresses.Clear());
@@ -142,12 +205,34 @@ namespace HostTemplate.Tests
 
             public int Count => _count;
 
+            public Action<StepContext> BeforeComplete { get; set; }
+
+            public StepResult ResultToReturn { get; set; }
+
             public Task<StepResult> ExecuteAsync(StepContext context)
             {
                 Interlocked.Increment(ref _count);
+                BeforeComplete?.Invoke(context);
                 Done.Set();
-                return Task.FromResult(StepResult.Ok(ReviewCode.OK_InStation));
+                return Task.FromResult(ResultToReturn ?? StepResult.Ok(ReviewCode.OK_InStation));
             }
+        }
+
+        private static async Task<bool> WaitUntil(Func<bool> condition, int timeoutMs = 3000)
+        {
+            var start = Environment.TickCount;
+
+            while (unchecked(Environment.TickCount - start) < timeoutMs)
+            {
+                if (condition())
+                {
+                    return true;
+                }
+
+                await Task.Delay(20);
+            }
+
+            return condition();
         }
 
         private sealed class CollectingLogger : IAppLogger

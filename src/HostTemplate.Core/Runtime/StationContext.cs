@@ -38,6 +38,7 @@ namespace HostTemplate.Core.Runtime
             State = new StationState();
             Alarms = new AlarmManager();
             Trace = new ProcessTrace();
+            Live = new CycleLiveData();
             Session = UserSession.Anonymous;
         }
 
@@ -56,6 +57,11 @@ namespace HostTemplate.Core.Runtime
         public StationState State { get; }
 
         public ProcessTrace Trace { get; }
+
+        /// <summary>
+        /// 当前节拍的实时数据。只保留这一件产品，历史查询不在这里。
+        /// </summary>
+        public CycleLiveData Live { get; }
 
         /// <summary>当前登录会话。未启用登录时为匿名管理员，所有权限判断放行。</summary>
         public UserSession Session { get; set; }

@@ -36,6 +36,9 @@ namespace HostTemplate.Core.Flow
 
         public ProcessTrace Trace => Station.Trace;
 
+        /// <summary>当前周期实时数据。步骤只往这里推，不关心界面用什么控件画。</summary>
+        public CycleLiveData Live => Station.Live;
+
         public AppConfig App => Station.App;
 
         public PlcConfig PlcConfig => Station.Plc;
@@ -89,6 +92,31 @@ namespace HostTemplate.Core.Flow
 
             State.ReviewCode = (ushort)code;
             return Plc.WriteWord(address, (ushort)code, out _);
+        }
+
+        /// <summary>
+        /// 写入或更新当前周期的一行（项目 / 标准 / 实测 / 合格）。同名项目覆盖。
+        /// </summary>
+        public void PublishItem(string itemName, string standard, string value, bool passed)
+        {
+            Live.PublishItem(itemName, standard, value, passed);
+        }
+
+        /// <summary>
+        /// 给当前周期的一条曲线追加一个点。同名系列会累积，进站时由引擎清空。
+        /// </summary>
+        public void PublishPoint(string seriesName, double x, double y)
+        {
+            Live.PublishPoint(seriesName, x, y);
+        }
+
+        /// <summary>
+        /// 给出当前产品结论（大号 OK / NG）。本周期一旦 NG，后续 OK 不会盖掉。
+        /// 步骤漏调时，引擎仍会在失败结果上补一次 NG。
+        /// </summary>
+        public void PublishVerdict(bool passed, string reason)
+        {
+            Live.PublishVerdict(passed, reason);
         }
     }
 }

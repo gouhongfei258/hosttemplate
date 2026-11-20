@@ -1,0 +1,59 @@
+name: Release
+
+# 合并进默认分支（push 到 main）后打一版 Release。
+# 版本在构建时注入，不回写仓库。产物是构建输出，不发布 GitHub Release。
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Test and build Release
+        shell: pwsh
+        run: |
+          $sha = $env:GITHUB_SHA.Substring(0, 7)
+          dotnet test HostTemplate.sln -c Release --verbosity minimal `
+            "-p:VersionPatch=$env:GITHUB_RUN_NUMBER" `
+            "-p:SourceRevisionId=$sha"
+
+      - name: Verify stamped version
+        shell: pwsh
+        run: |
+          $stamp = "1.0.$env:GITHUB_RUN_NUMBER+" + $env:GITHUB_SHA.Substring(0, 7)
+          $exe = Resolve-Path "src/HostTemplate.App/bin/Release/net8.0-windows/HostTemplate.exe"
+          $dll = Resolve-Path "src/HostTemplate.App/bin/Release/net8.0-windows/HostTemplate.dll"
+          $fileVersion = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($exe).FileVersion
+          $expectedFile = "1.0.$env:GITHUB_RUN_NUMBER.0"
+          Write-Host "FileVersion=$fileVersion"
+          if ($fileVersion -ne $expectedFile) {
+            throw "FileVersion '$fileVersion' != '$expectedFile'"
+          }
+          $dllText = [System.Text.Encoding]::UTF8.GetString([System.IO.File]::ReadAllBytes($dll))
+          if ($dllText.IndexOf($stamp) -lt 0) {
+            throw "Assembly is missing InformationalVersion $stamp"
+          }
+          Write-Host "InformationalVersion=$stamp"
+
+      - name: Upload Release build
+        uses: actions/upload-artifact@v4
+        with:
+          name: HostTemplate-1.0.${{ github.run_number }}
+          path: src/HostTemplate.App/bin/Release/net8.0-windows/
+          if-no-files-found: error

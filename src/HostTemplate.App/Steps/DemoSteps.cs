@@ -93,6 +93,10 @@ namespace HostTemplate.App.Steps
                 return StepResult.Ng(ReviewCode.NG_TestStart, error);
             }
 
+            // 示例曲线：真实工站在采集过程中反复 PublishPoint，不必等测试结束再一次性给。
+            context.PublishPoint("示例电压", 0, 11.8);
+            context.PublishPoint("示例电压", 1, 12.1);
+
             await Task.Delay(120, context.CancellationToken).ConfigureAwait(false);
 
             return StepResult.Ok(ReviewCode.OK_TestStart, "测试已开始");
@@ -120,6 +124,7 @@ namespace HostTemplate.App.Steps
 
             // 示例判定：SN 里含 "NG" 即判不良，方便现场演示不良分支。
             var passed = context.State.SerialNumber.IndexOf("NG", StringComparison.OrdinalIgnoreCase) < 0;
+            var voltage = passed ? 12.0 : 13.6;
 
             var record = new TestDataRecord
             {
@@ -139,10 +144,19 @@ namespace HostTemplate.App.Steps
             {
                 ItemName = "示例电压",
                 Standard = "11.5 ~ 12.5",
-                Value = "12.0",
+                Value = voltage.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture),
                 Result = passed,
                 Remark = "模板示例数据，接入真实仪器后替换",
             });
+
+            // 同一批测试项进实时表格。落库失败也不影响操作员看到这一件。
+            foreach (var item in record.Items)
+            {
+                context.PublishItem(item.ItemName, item.Standard, item.Value, item.Result);
+            }
+
+            context.PublishPoint("示例电压", 2, 12.0);
+            context.PublishPoint("示例电压", 3, voltage);
 
             try
             {
@@ -150,16 +164,25 @@ namespace HostTemplate.App.Steps
             }
             catch (Exception ex)
             {
-                // 落库失败不应阻断产线，只报警。
+                // 落库失败不应阻断产线，只报警。产品结论仍然照常给出。
                 context.Alarms.Set("测试数据落库失败", true, ex.Message);
                 context.Log.Error("测试数据落库失败", ex);
             }
 
             await Task.Delay(150, context.CancellationToken).ConfigureAwait(false);
 
+            var message = passed
+                ? $"测试用时 {(context.State.EndTime - context.State.StartTime).TotalMilliseconds:F0}ms"
+                : "示例判定为不良";
+
+            if (passed)
+            {
+                context.PublishVerdict(true, message);
+            }
+
             return passed
-                ? StepResult.Ok(ReviewCode.OK_TestFinish, $"测试用时 {(context.State.EndTime - context.State.StartTime).TotalMilliseconds:F0}ms")
-                : StepResult.Ng(ReviewCode.NG_TestFinish, "示例判定为不良");
+                ? StepResult.Ok(ReviewCode.OK_TestFinish, message)
+                : StepResult.Ng(ReviewCode.NG_TestFinish, message);
         }
     }
 

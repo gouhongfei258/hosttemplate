@@ -6,9 +6,21 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <Company>装备开发部</Company>
     <Product>HostTemplate</Product>
-    <Version>1.0.0</Version>
     <NeutralLanguage>zh-CN</NeutralLanguage>
     <SatelliteResourceLanguages>zh-Hans</SatelliteResourceLanguages>
+
+    <!--
+      版本只在仓库里固定主次版本。补丁默认 0，本地 dotnet build 得到 1.0.0。
+      CI 传入 VersionPatch（GitHub run_number）和 SourceRevisionId（短 SHA），
+      不把每次合并的版本号提交回仓库。
+      InformationalVersion 由 SDK 在有 SourceRevisionId 时自动拼成 1.0.N+sha。
+    -->
+    <VersionMajor>1</VersionMajor>
+    <VersionMinor>0</VersionMinor>
+    <VersionPatch Condition="'$(VersionPatch)' == ''">0</VersionPatch>
+    <Version>$(VersionMajor).$(VersionMinor).$(VersionPatch)</Version>
+    <AssemblyVersion>$(VersionMajor).$(VersionMinor).$(VersionPatch).0</AssemblyVersion>
+    <FileVersion>$(VersionMajor).$(VersionMinor).$(VersionPatch).0</FileVersion>
   </PropertyGroup>
 
 </Project>
