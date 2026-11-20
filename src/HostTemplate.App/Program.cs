@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Threading;
 using System.Windows.Forms;
 using HostTemplate.App.Forms;
+using HostTemplate.App.Startup;
 using HostTemplate.App.Steps;
 using HostTemplate.App.Updates;
 using HostTemplate.Contracts;
@@ -213,6 +214,7 @@ namespace HostTemplate.App
             var engine = new StationEngine(context, DemoSteps.Create(store));
 
             logger.Info($"工站：{context.App.WorkStationName}（{context.App.EquId}），仿真模式={context.App.Simulate}");
+            ApplyWindowsStartup(logger, config.App.StartWithWindows);
 
             var autoStart = args != null && Array.IndexOf(args, "--autostart") >= 0;
             var updates = new StationUpdateController(
@@ -224,12 +226,40 @@ namespace HostTemplate.App
                 engine,
                 new VelopackUpdateInstaller(bootstrap.ServiceToken));
 
-            // 「实时数据」整页在这里交给工站。DemoLiveView 只是能跑起来的示例。
-            var realtimeView = new DemoLiveView(context.Live);
-            Application.Run(new MainForm(context, engine, realtimeView, CreatePlcClient, CreateApiClient, updates)
+            // 「实时数据」按 app.xml 的测试类型选择。空白、默认和未登记的名字都用 DemoLiveView。
+            // 其它类型在这里登记，页面可以是任意控件：
+            // LiveViewCatalog.Register("扭矩", ctx => new TorqueLiveView(ctx));
+            var realtimeView = LiveViewCatalog.Create(context);
+            Application.Run(new MainForm(context, engine, realtimeView, CreatePlcClient, CreateApiClient, updates, () => LiveViewCatalog.Create(context))
             {
                 AutoStart = autoStart,
             });
+        }
+
+        private static void ApplyWindowsStartup(Log4NetLogger logger, bool enabled)
+        {
+            try
+            {
+                var startup = WindowsAutoStart.Apply(enabled);
+                if (!startup.Success)
+                {
+                    logger.Warn("开机自启没有写进启动项：" + startup.Error);
+                    return;
+                }
+
+                if (enabled)
+                {
+                    logger.Info("开机自启已登记：" + startup.Command);
+                }
+                else if (startup.Changed)
+                {
+                    logger.Info("开机自启已关闭。");
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Warn("同步开机自启失败：" + ex.Message);
+            }
         }
 
         private static HttpClient CreateServiceHttp(BootstrapConfig bootstrap)

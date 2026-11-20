@@ -44,6 +44,7 @@ namespace HostTemplate.App
             this.btnUser = new Sunny.UI.UIButton();
             this.btnRemoteConfig = new Sunny.UI.UIButton();
             this.btnUpdate = new Sunny.UI.UIButton();
+            this.btnKeyboard = new Sunny.UI.UIButton();
             this.lblHint = new System.Windows.Forms.Label();
             this.lblVersion = new System.Windows.Forms.Label();
             this.btnTheme = new Sunny.UI.UIButton();
@@ -321,6 +322,7 @@ namespace HostTemplate.App
             this.panelBottom.Controls.Add(this.btnUser);
             this.panelBottom.Controls.Add(this.btnRemoteConfig);
             this.panelBottom.Controls.Add(this.btnUpdate);
+            this.panelBottom.Controls.Add(this.btnKeyboard);
             this.panelBottom.Controls.Add(this.lblHint);
             this.panelBottom.Controls.Add(this.lblVersion);
             this.panelBottom.Dock = System.Windows.Forms.DockStyle.Bottom;
@@ -420,6 +422,21 @@ namespace HostTemplate.App
             this.btnUpdate.Text = "程序更新";
             this.btnUpdate.Click += new System.EventHandler(this.BtnUpdate_Click);
             //
+            // btnKeyboard
+            //
+            this.btnKeyboard.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnKeyboard.FillColor = System.Drawing.Color.FromArgb(37, 99, 235);
+            this.btnKeyboard.Font = new System.Drawing.Font("Microsoft YaHei UI", 12F, System.Drawing.FontStyle.Bold);
+            this.btnKeyboard.ForeColor = System.Drawing.Color.White;
+            this.btnKeyboard.Location = new System.Drawing.Point(1026, 62);
+            this.btnKeyboard.Name = "btnKeyboard";
+            this.btnKeyboard.Radius = 4;
+            this.btnKeyboard.RectColor = System.Drawing.Color.FromArgb(37, 99, 235);
+            this.btnKeyboard.Size = new System.Drawing.Size(140, 40);
+            this.btnKeyboard.TabIndex = 9;
+            this.btnKeyboard.Text = "软键盘";
+            this.btnKeyboard.Click += new System.EventHandler(this.BtnKeyboard_Click);
+            //
             // lblHint
             //
             this.lblHint.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) | System.Windows.Forms.AnchorStyles.Right)));
@@ -514,6 +531,7 @@ namespace HostTemplate.App
         private Sunny.UI.UIButton btnUser;
         private Sunny.UI.UIButton btnRemoteConfig;
         private Sunny.UI.UIButton btnUpdate;
+        private Sunny.UI.UIButton btnKeyboard;
         private System.Windows.Forms.Label lblHint;
         private System.Windows.Forms.Label lblVersion;
         private Sunny.UI.UIButton btnTheme;

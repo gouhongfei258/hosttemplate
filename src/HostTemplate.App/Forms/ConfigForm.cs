@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using HostTemplate.App.Startup;
 using HostTemplate.Core.Abstractions;
 using HostTemplate.Core.Configuration;
 using HostTemplate.Core.Configuration.Store;
@@ -861,7 +862,22 @@ namespace HostTemplate.App.Forms
             Saved = true;
             _context.Logger.Info("配置已保存：" + _context.Config.ConfigDirectory);
 
+            var startup = WindowsAutoStart.Apply(_appEdit.StartWithWindows);
             var warnings = CollectWarnings();
+            if (!startup.Success)
+            {
+                warnings.Insert(0, "开机自启没有写进启动项：" + startup.Error);
+                _context.Logger.Warn("开机自启没有写进启动项：" + startup.Error);
+            }
+            else if (_appEdit.StartWithWindows)
+            {
+                _context.Logger.Info("开机自启已登记：" + startup.Command);
+            }
+            else if (startup.Changed)
+            {
+                _context.Logger.Info("开机自启已关闭。");
+            }
+
             if (warnings.Count > 0)
             {
                 MessageBox.Show(this,

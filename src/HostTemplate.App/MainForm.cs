@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using HostTemplate.App.Controls;
 using HostTemplate.App.Forms;
+using HostTemplate.Core.Runtime.Startup;
 using HostTemplate.Contracts;
 using HostTemplate.Core.Abstractions;
 using HostTemplate.Core.Configuration;
@@ -33,7 +34,9 @@ namespace HostTemplate.App
         private readonly Func<StationContext, IPlcClient> _plcFactory;
         private readonly Func<StationContext, IApiClient> _apiFactory;
         private readonly StationUpdateController _updates;
+        private readonly Func<Control> _createRealtimeView;
         private readonly string _versionText;
+        private Control _realtimeView;
 
         private int _tick;
         private bool _apiChecking;
@@ -53,7 +56,8 @@ namespace HostTemplate.App
             Control realtimeView,
             Func<StationContext, IPlcClient> plcFactory = null,
             Func<StationContext, IApiClient> apiFactory = null,
-            StationUpdateController updates = null)
+            StationUpdateController updates = null,
+            Func<Control> createRealtimeView = null)
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _engine = engine ?? throw new ArgumentNullException(nameof(engine));
@@ -65,12 +69,13 @@ namespace HostTemplate.App
             _plcFactory = plcFactory;
             _apiFactory = apiFactory;
             _updates = updates;
+            _createRealtimeView = createRealtimeView;
             _versionText = ReadDisplayVersion();
 
             InitializeComponent();
             _mesOnColor = lightApi.ActiveColor;
-            realtimeView.Dock = DockStyle.Fill;
-            pageRealtime.Controls.Add(realtimeView);
+            _alarmTip = new ToolTip();
+            _alarmTip.SetToolTip(btnKeyboard, "打开 Windows 屏幕键盘");
 
             _logSink = new UiLogSink(rtbLog);
             _context.Logger.Written += (s, e) => _logSink.Enqueue(e);
@@ -79,8 +84,8 @@ namespace HostTemplate.App
             _engine.StepExecuted += OnStepExecuted;
             _context.Alarms.Changed += OnAlarmChanged;
 
-            _alarmTip = new ToolTip();
             ApplyTheme(MainTheme.For(_context.App.Theme));
+            HostRealtimeView(realtimeView);
 
             _refreshTimer = new Timer { Interval = 300 };
             _refreshTimer.Tick += async (s, e) => await OnRefreshTickAsync();
@@ -353,6 +358,7 @@ namespace HostTemplate.App
             PaintButton(btnUser, _theme.ButtonSecondaryFill, _theme.ButtonSecondaryFore, _theme.ButtonSecondaryRect);
             PaintButton(btnRemoteConfig, _theme.ButtonSecondaryFill, _theme.ButtonSecondaryFore, _theme.ButtonSecondaryRect);
             PaintButton(btnUpdate, _theme.ButtonSecondaryFill, _theme.ButtonSecondaryFore, _theme.ButtonSecondaryRect);
+            PaintButton(btnKeyboard, _theme.KeyboardFill, System.Drawing.Color.White, _theme.KeyboardFill);
             PaintButton(btnTheme, _theme.ThemeButtonFill, _theme.ThemeButtonFore, _theme.ThemeButtonRect);
             btnTheme.Text = _theme.ThemeButtonText;
             _alarmTip.SetToolTip(btnTheme, _theme.ThemeButtonTip);
@@ -502,6 +508,79 @@ namespace HostTemplate.App
             }
         }
 
+        private void HostRealtimeView(Control view)
+        {
+            if (view == null)
+            {
+                throw new ArgumentNullException(nameof(view), "「实时数据」页由工站自己提供。");
+            }
+
+            view.Dock = DockStyle.Fill;
+            if (view is IMainThemeAware aware)
+            {
+                aware.ApplyMainTheme(_theme);
+            }
+
+            var previous = _realtimeView;
+            pageRealtime.Controls.Add(view);
+            _realtimeView = view;
+
+            if (previous != null && !ReferenceEquals(previous, view))
+            {
+                pageRealtime.Controls.Remove(previous);
+                previous.Dispose();
+            }
+        }
+
+        private void ReplaceRealtimeView()
+        {
+            if (_createRealtimeView == null)
+            {
+                return;
+            }
+
+            Control view;
+            try
+            {
+                view = _createRealtimeView();
+            }
+            catch (Exception ex)
+            {
+                _context.Logger.Warn("加载实时页面失败，仍使用当前页面：" + ex.Message);
+                return;
+            }
+
+            if (view == null)
+            {
+                _context.Logger.Warn("实时页面为空，仍使用当前页面。");
+                return;
+            }
+
+            HostRealtimeView(view);
+        }
+
+        private void BtnKeyboard_Click(object sender, EventArgs e)
+        {
+            var opened = OnScreenKeyboard.TryOpen(
+                Environment.SystemDirectory,
+                Environment.GetFolderPath(Environment.SpecialFolder.CommonProgramFiles),
+                System.IO.File.Exists,
+                path => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = path,
+                    UseShellExecute = true,
+                }),
+                out var error);
+
+            if (opened)
+            {
+                return;
+            }
+
+            _context.Logger.Warn("打开软键盘失败：" + error);
+            MessageBox.Show(this, "打不开屏幕键盘：" + error, "软键盘", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+
         private async void BtnStart_Click(object sender, EventArgs e)
         {
             try
@@ -624,6 +703,7 @@ namespace HostTemplate.App
                 }
 
                 _engine.ReloadAddresses();
+                ReplaceRealtimeView();
 
                 BindStaticInfo();
                 RefreshState();

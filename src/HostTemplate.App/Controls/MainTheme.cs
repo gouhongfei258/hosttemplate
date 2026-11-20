@@ -67,6 +67,8 @@ namespace HostTemplate.App.Controls
 
         public Color StopFill { get; private set; }
 
+        public Color KeyboardFill { get; private set; }
+
         public Color LogBack { get; private set; }
 
         public Color LogInfo { get; private set; }
@@ -168,6 +170,7 @@ namespace HostTemplate.App.Controls
                 ButtonSecondaryFore = Color.White,
                 StartFill = Color.FromArgb(22, 163, 74),
                 StopFill = Color.FromArgb(185, 28, 28),
+                KeyboardFill = Color.FromArgb(37, 99, 235),
                 LogBack = Color.FromArgb(11, 18, 32),
                 LogInfo = Color.FromArgb(209, 213, 219),
                 LogWarn = Color.FromArgb(251, 191, 36),
@@ -234,6 +237,7 @@ namespace HostTemplate.App.Controls
                 ButtonSecondaryFore = Color.FromArgb(15, 23, 42),
                 StartFill = Color.FromArgb(22, 163, 74),
                 StopFill = Color.FromArgb(185, 28, 28),
+                KeyboardFill = Color.FromArgb(29, 78, 216),
                 LogBack = Color.White,
                 LogInfo = Color.FromArgb(30, 41, 59),
                 LogWarn = Color.FromArgb(180, 83, 9),
