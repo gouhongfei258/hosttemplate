@@ -48,7 +48,7 @@ namespace HostTemplate.Core.Flow
     ///   1. 周期轮询 PLC、翻转心跳、读取流程字与预留位；
     ///   2. 流程字变化时按 <see cref="IStationStep.Word"/> 分发到对应步骤；
     ///   3. 单飞防重入：上一步没结束不重入，下一轮重试而不是丢弃；
-    ///   4. 步骤结束后统一回写审查码、记录流程轨迹、统计良率。
+    ///   4. 步骤结束后统一回写审查码、记录流程轨迹；良品/不良按件记一次，不按步骤累加。
     ///
     /// 不含任何具体业务。业务全部在 IStationStep 实现里。
     /// </summary>
@@ -70,6 +70,12 @@ namespace HostTemplate.Core.Flow
         private long _tick;
         private ushort _handledWord;
         private bool _hasHandled;
+
+        /// <summary>当前这件产品已经进站或执行过步骤，空闲时才能拿最后一枚审查码收口。</summary>
+        private bool _pieceOpen;
+
+        /// <summary>当前这件已经记过良品或不良。同一件后续步骤不再累加。</summary>
+        private bool _pieceCounted;
         private bool _disposed;
         private DateTime _lastConnectAttempt = DateTime.MinValue;
         private bool[] _reserveBools = Array.Empty<bool>();
@@ -142,6 +148,8 @@ namespace HostTemplate.Core.Flow
 
             _hasHandled = false;
             _handledWord = 0;
+            _pieceOpen = false;
+            _pieceCounted = false;
             _tick = 0;
             _context.Trace.Clear();
             _context.Alarms.Clear();
@@ -369,9 +377,12 @@ namespace HostTemplate.Core.Flow
         /// </summary>
         private async Task<bool> DispatchAsync(ushort word, CancellationToken token)
         {
-            // 空闲流程字不处理，也不告警。
+            // 空闲表示这一件已经离开工站。还没记过数时，用最后一枚审查码收口。
             if (word == ProcessWords.Idle)
             {
+                CloseOpenPiece();
+                _pieceOpen = false;
+                _pieceCounted = false;
                 return true;
             }
 
@@ -396,7 +407,15 @@ namespace HostTemplate.Core.Flow
             {
                 if (word == ProcessWords.InStation)
                 {
+                    // 下一件开始。上一件若停在中间步骤，最后一枚审查码就是它的最终结果。
+                    CloseOpenPiece();
+                    _pieceOpen = true;
+                    _pieceCounted = false;
                     _context.Trace.Clear();
+                }
+                else
+                {
+                    _pieceOpen = true;
                 }
 
                 _context.State.RunningStep = step.Name;
@@ -412,15 +431,7 @@ namespace HostTemplate.Core.Flow
                 if (result != null)
                 {
                     WriteReview(result.Review);
-
-                    if (result.Success)
-                    {
-                        _context.State.CycleCount++;
-                    }
-                    else
-                    {
-                        _context.State.NgCount++;
-                    }
+                    CountPiece(result.Review, cycleClosed: false);
 
                     var level = result.Success ? "✔" : "✘";
                     _context.Logger.Info(
@@ -448,6 +459,93 @@ namespace HostTemplate.Core.Flow
             {
                 _context.State.RunningStep = string.Empty;
                 _stepGate.Release();
+            }
+        }
+
+        /// <summary>
+        /// 一件产品只记一次良品或不良。
+        /// 周期还没结束时，只有 NG_*（结果已经是不良）和收尾 OK（OK_OutStation / OK_Done）才计数。
+        /// 进站、测试开始、测试结束的 OK_* 是中间步骤，不加件数。
+        /// 周期结束（回到空闲，或下一件进站）时，若这件还没记过，最后一枚审查码按 OK_* / NG_* 收口。
+        /// 同一件先出现 NG_* 之后，后面的 OK 不再记成良品。
+        /// </summary>
+        private void CloseOpenPiece()
+        {
+            if (!_pieceOpen || _pieceCounted)
+            {
+                return;
+            }
+
+            CountPiece((ReviewCode)_context.State.ReviewCode, cycleClosed: true);
+        }
+
+        private void CountPiece(ReviewCode code, bool cycleClosed)
+        {
+            if (_pieceCounted || !ShouldCountPiece(code, cycleClosed))
+            {
+                return;
+            }
+
+            if (IsNgReview(code))
+            {
+                _context.State.NgCount++;
+            }
+            else
+            {
+                _context.State.CycleCount++;
+            }
+
+            _pieceCounted = true;
+        }
+
+        private static bool ShouldCountPiece(ReviewCode code, bool cycleClosed)
+        {
+            if (IsNgReview(code))
+            {
+                return true;
+            }
+
+            if (!IsOkReview(code))
+            {
+                return false;
+            }
+
+            if (cycleClosed)
+            {
+                return true;
+            }
+
+            return code == ReviewCode.OK_OutStation || code == ReviewCode.OK_Done;
+        }
+
+        private static bool IsOkReview(ReviewCode code)
+        {
+            switch (code)
+            {
+                case ReviewCode.OK_InStation:
+                case ReviewCode.OK_TestStart:
+                case ReviewCode.OK_TestFinish:
+                case ReviewCode.OK_OutStation:
+                case ReviewCode.OK_Done:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        private static bool IsNgReview(ReviewCode code)
+        {
+            switch (code)
+            {
+                case ReviewCode.NG_InStation:
+                case ReviewCode.NG_TestStart:
+                case ReviewCode.NG_TestFinish:
+                case ReviewCode.NG_OutStation:
+                case ReviewCode.NG_PowerReTest:
+                case ReviewCode.NG_Product:
+                    return true;
+                default:
+                    return false;
             }
         }
 

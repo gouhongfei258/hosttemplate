@@ -39,6 +39,7 @@ namespace HostTemplate.Core.Abstractions
 
         /// <summary>
         /// 连通性探测，用于界面状态灯与初始化校验。
+        /// 接口未启用时必须返回 false，不能把「MES 已关闭」报成连通。
         /// </summary>
         Task<bool> PingAsync(CancellationToken cancellationToken);
     }

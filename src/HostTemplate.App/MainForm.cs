@@ -32,6 +32,9 @@ namespace HostTemplate.App
 
         private int _tick;
         private bool _apiChecking;
+        private bool _mesAvailable;
+        private MesLamp _mesLamp = MesLamp.Off;
+        private readonly System.Drawing.Color _mesOnColor;
         private MainTheme _theme = MainTheme.Night;
 
         /// <summary>窗口显示后自动开始监控（配合 --autostart 使用）。</summary>
@@ -56,6 +59,7 @@ namespace HostTemplate.App
             _versionText = ReadDisplayVersion();
 
             InitializeComponent();
+            _mesOnColor = lightApi.ActiveColor;
             realtimeView.Dock = DockStyle.Fill;
             pageRealtime.Controls.Add(realtimeView);
 
@@ -127,9 +131,68 @@ namespace HostTemplate.App
             RefreshAlarmBanner();
 
             _tick++;
-            if (_tick % 20 == 0 && !_apiChecking)
+            RefreshMesLamp();
+        }
+
+        /// <summary>
+        /// MES 关闭时每拍都打成报警红，不看 PingAsync。
+        /// 接口开着时仍按原来的节拍探测：通为绿，不通为灭。从关闭重新打开时立刻补一次探测，避免红灯滞留。
+        /// </summary>
+        private void RefreshMesLamp()
+        {
+            var client = _context.ApiClient;
+            var enabled = client != null && client.IsAvailable;
+
+            if (!enabled)
+            {
+                _mesAvailable = false;
+                PublishMesLamp(pingSucceeded: true);
+                return;
+            }
+
+            var justEnabled = !_mesAvailable;
+            _mesAvailable = true;
+
+            var due = _tick % 20 == 0;
+            var recoverFromDisabled = justEnabled && _mesLamp == MesLamp.Alarm;
+            if ((due || recoverFromDisabled) && !_apiChecking)
             {
                 _ = CheckApiAsync();
+            }
+        }
+
+        private void PublishMesLamp(bool pingSucceeded)
+        {
+            var client = _context.ApiClient;
+            var hasClient = client != null;
+            var enabled = hasClient && client.IsAvailable;
+            _context.State.ApiConnected = enabled && pingSucceeded;
+            ApplyMesLamp(MesLampState.Resolve(hasClient, enabled, pingSucceeded));
+        }
+
+        private void ApplyMesLamp(MesLamp lamp)
+        {
+            if (_mesLamp == lamp)
+            {
+                return;
+            }
+
+            _mesLamp = lamp;
+
+            switch (lamp)
+            {
+                case MesLamp.Alarm:
+                    lightApi.ActiveColor = lightAlarm.ActiveColor;
+                    lightApi.Active = true;
+                    break;
+                case MesLamp.On:
+                    lightApi.ActiveColor = _mesOnColor;
+                    lightApi.Active = true;
+                    break;
+                default:
+                    lightApi.ActiveColor = _mesOnColor;
+                    lightApi.Active = false;
+                    break;
             }
         }
 
@@ -140,19 +203,27 @@ namespace HostTemplate.App
             try
             {
                 var client = _context.ApiClient;
-                if (client == null)
+                if (client == null || !client.IsAvailable)
                 {
-                    lightApi.Active = false;
+                    PublishMesLamp(pingSucceeded: true);
                     return;
                 }
 
                 var ok = await client.PingAsync(System.Threading.CancellationToken.None).ConfigureAwait(true);
-                _context.State.ApiConnected = ok;
-                lightApi.Active = ok;
+
+                client = _context.ApiClient;
+                if (client == null || !client.IsAvailable)
+                {
+                    // 探测期间被关掉。即使这次 Ping 返回 true，灯也要是红的。
+                    PublishMesLamp(pingSucceeded: true);
+                    return;
+                }
+
+                PublishMesLamp(ok);
             }
             catch
             {
-                lightApi.Active = false;
+                PublishMesLamp(pingSucceeded: false);
             }
             finally
             {

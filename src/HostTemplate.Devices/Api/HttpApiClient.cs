@@ -12,7 +12,8 @@ namespace HostTemplate.Devices.Api
 {
     /// <summary>
     /// HTTP 接口客户端。端点、请求头、超时、重试全部来自 api.xml。
-    /// 关闭 ApiConfig.Enabled 时所有调用直接放行，便于无 MES 环境离线调试。
+    /// 关闭 ApiConfig.Enabled 时过站调用直接放行，便于无 MES 环境离线调试。
+    /// 连通探测在关闭时返回 false，避免状态灯把「已关闭」显示成连通。
     /// </summary>
     public sealed class HttpApiClient : IApiClient, IDisposable
     {
@@ -131,9 +132,10 @@ namespace HostTemplate.Devices.Api
 
         public async Task<bool> PingAsync(CancellationToken cancellationToken)
         {
+            // 过站在 PostAsync 里仍然放行；探测必须反映「MES 没开」，界面才能把灯打红。
             if (!_config.Enabled)
             {
-                return true;
+                return false;
             }
 
             try

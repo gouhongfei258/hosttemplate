@@ -130,6 +130,217 @@ namespace HostTemplate.Tests
         }
 
         [Fact]
+        public async Task Engine_ShouldCountOneGoodPieceWhenCycleClosesOk()
+        {
+            var context = CreateContext();
+            var fake = new FakePlcClient("MW200");
+            context.PlcClient = fake;
+
+            var inbound = new RecordingStep(ProcessWords.InStation);
+            var start = new RecordingStep(ProcessWords.TestStart)
+            {
+                ResultToReturn = StepResult.Ok(ReviewCode.OK_TestStart),
+            };
+            var finish = new RecordingStep(ProcessWords.TestFinish)
+            {
+                ResultToReturn = StepResult.Ok(ReviewCode.OK_TestFinish),
+            };
+            var outbound = new RecordingStep(ProcessWords.OutStation)
+            {
+                ResultToReturn = StepResult.Ok(ReviewCode.OK_OutStation),
+            };
+
+            using (var engine = new StationEngine(context, new IStationStep[] { inbound, start, finish, outbound }))
+            {
+                await engine.StartAsync();
+
+                await DriveAsync(fake, context, inbound);
+                Assert.Equal(0, context.State.CycleCount);
+                Assert.Equal(0, context.State.NgCount);
+
+                await DriveAsync(fake, context, start);
+                await DriveAsync(fake, context, finish);
+                Assert.Equal(0, context.State.CycleCount);
+                Assert.Equal(0, context.State.NgCount);
+
+                await DriveAsync(fake, context, outbound);
+                Assert.Equal(1, context.State.CycleCount);
+                Assert.Equal(0, context.State.NgCount);
+
+                await engine.StopAsync();
+            }
+        }
+
+        [Fact]
+        public async Task Engine_ShouldCountOneNgAndIgnoreLaterOkInSamePiece()
+        {
+            var context = CreateContext();
+            var fake = new FakePlcClient("MW200");
+            context.PlcClient = fake;
+
+            var inbound = new RecordingStep(ProcessWords.InStation);
+            var start = new RecordingStep(ProcessWords.TestStart)
+            {
+                ResultToReturn = StepResult.Ng(ReviewCode.NG_TestStart, "未进站"),
+            };
+            var finish = new RecordingStep(ProcessWords.TestFinish)
+            {
+                ResultToReturn = StepResult.Ok(ReviewCode.OK_TestFinish),
+            };
+            var outbound = new RecordingStep(ProcessWords.OutStation)
+            {
+                ResultToReturn = StepResult.Ok(ReviewCode.OK_OutStation),
+            };
+
+            using (var engine = new StationEngine(context, new IStationStep[] { inbound, start, finish, outbound }))
+            {
+                await engine.StartAsync();
+
+                await DriveAsync(fake, context, inbound);
+                await DriveAsync(fake, context, start);
+                Assert.Equal(0, context.State.CycleCount);
+                Assert.Equal(1, context.State.NgCount);
+
+                await DriveAsync(fake, context, finish);
+                await DriveAsync(fake, context, outbound);
+                Assert.Equal(0, context.State.CycleCount);
+                Assert.Equal(1, context.State.NgCount);
+
+                await engine.StopAsync();
+            }
+        }
+
+        [Fact]
+        public async Task Engine_ShouldCountEachPieceOnce()
+        {
+            var context = CreateContext();
+            var fake = new FakePlcClient("MW200");
+            context.PlcClient = fake;
+
+            var inbound = new RecordingStep(ProcessWords.InStation);
+            var outbound = new RecordingStep(ProcessWords.OutStation)
+            {
+                ResultToReturn = StepResult.Ok(ReviewCode.OK_OutStation),
+            };
+
+            using (var engine = new StationEngine(context, new IStationStep[] { inbound, outbound }))
+            {
+                await engine.StartAsync();
+
+                await DriveAsync(fake, context, inbound);
+                await DriveAsync(fake, context, outbound);
+                Assert.Equal(1, context.State.CycleCount);
+
+                await DriveIdleAsync(fake, context);
+                Assert.Equal(1, context.State.CycleCount);
+                Assert.Equal(0, context.State.NgCount);
+
+                await DriveAsync(fake, context, inbound);
+                Assert.Equal(1, context.State.CycleCount);
+
+                await DriveAsync(fake, context, outbound);
+                Assert.Equal(2, context.State.CycleCount);
+                Assert.Equal(0, context.State.NgCount);
+
+                await engine.StopAsync();
+            }
+        }
+
+        [Fact]
+        public async Task Engine_ShouldCountFinalOkReviewWhenCycleReturnsIdle()
+        {
+            var context = CreateContext();
+            var fake = new FakePlcClient("MW200");
+            context.PlcClient = fake;
+
+            var finish = new RecordingStep(ProcessWords.TestFinish)
+            {
+                ResultToReturn = StepResult.Ok(ReviewCode.OK_TestFinish),
+            };
+
+            using (var engine = new StationEngine(context, new IStationStep[] { finish }))
+            {
+                await engine.StartAsync();
+
+                await DriveAsync(fake, context, finish);
+                Assert.Equal(0, context.State.CycleCount);
+
+                await DriveIdleAsync(fake, context);
+                Assert.Equal(1, context.State.CycleCount);
+                Assert.Equal(0, context.State.NgCount);
+
+                await engine.StopAsync();
+            }
+        }
+
+        [Fact]
+        public async Task Engine_ShouldCountOkDoneImmediatelyAndIgnoreSample()
+        {
+            var context = CreateContext();
+            var fake = new FakePlcClient("MW200");
+            context.PlcClient = fake;
+
+            var done = new RecordingStep(ProcessWords.TestFinish)
+            {
+                ResultToReturn = StepResult.Ok(ReviewCode.OK_Done),
+            };
+            var sample = new RecordingStep(ProcessWords.InStation)
+            {
+                ResultToReturn = new StepResult
+                {
+                    Success = true,
+                    Review = ReviewCode.IsSample,
+                    Message = "样件",
+                },
+            };
+
+            using (var engine = new StationEngine(context, new IStationStep[] { done, sample }))
+            {
+                await engine.StartAsync();
+
+                await DriveAsync(fake, context, done);
+                Assert.Equal(1, context.State.CycleCount);
+                Assert.Equal(0, context.State.NgCount);
+
+                await DriveIdleAsync(fake, context);
+                await DriveAsync(fake, context, sample);
+                await DriveIdleAsync(fake, context);
+
+                Assert.Equal(1, context.State.CycleCount);
+                Assert.Equal(0, context.State.NgCount);
+
+                await engine.StopAsync();
+            }
+        }
+
+        [Fact]
+        public async Task Engine_ShouldClassifyNgReviewEvenWhenStepSuccessFlagIsTrue()
+        {
+            var context = CreateContext();
+            var fake = new FakePlcClient("MW200");
+            context.PlcClient = fake;
+
+            var step = new RecordingStep(ProcessWords.TestFinish)
+            {
+                ResultToReturn = new StepResult
+                {
+                    Success = true,
+                    Review = ReviewCode.NG_Product,
+                },
+            };
+
+            using (var engine = new StationEngine(context, new IStationStep[] { step }))
+            {
+                await engine.StartAsync();
+                await DriveAsync(fake, context, step);
+                await engine.StopAsync();
+            }
+
+            Assert.Equal(0, context.State.CycleCount);
+            Assert.Equal(1, context.State.NgCount);
+        }
+
+        [Fact]
         public async Task Engine_ShouldReportErrorWhenCommandAddressMissing()
         {
             var context = CreateContext(manager => manager.Plc.Addresses.Clear());
@@ -184,6 +395,24 @@ namespace HostTemplate.Tests
                 Done.Set();
                 return Task.FromResult(ResultToReturn ?? StepResult.Ok(ReviewCode.OK_InStation));
             }
+        }
+
+        private static async Task DriveAsync(FakePlcClient fake, StationContext context, RecordingStep step)
+        {
+            var seen = step.Count;
+            fake.SetWords("MW200", step.Word, 0);
+            Assert.True(
+                await WaitUntil(() => step.Count > seen && string.IsNullOrEmpty(context.State.RunningStep)),
+                $"流程字 {step.Word} 未完成");
+        }
+
+        private static async Task DriveIdleAsync(FakePlcClient fake, StationContext context)
+        {
+            fake.SetWords("MW200", ProcessWords.Idle, 0);
+            Assert.True(await WaitUntil(() => context.State.ProcessWord == ProcessWords.Idle), "未回到空闲");
+
+            // 流程字先写入状态，收口在同一次分发里完成。多等几个轮询周期，避免读到写入和收口之间的空档。
+            await Task.Delay(100);
         }
 
         private static async Task<bool> WaitUntil(Func<bool> condition, int timeoutMs = 3000)
