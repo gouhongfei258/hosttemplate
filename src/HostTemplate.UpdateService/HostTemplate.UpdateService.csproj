@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>HostTemplate.UpdateService</RootNamespace>
+    <AssemblyName>HostTemplate.UpdateService</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HostTemplate.Contracts\HostTemplate.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

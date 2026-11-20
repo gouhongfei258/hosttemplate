@@ -77,6 +77,28 @@ namespace HostTemplate.Tests
         }
 
         [Fact]
+        public void DatabasePath_ShouldStayBesideConfigDirectory()
+        {
+            var context = CreateContext(out var manager);
+
+            Assert.Equal(Path.Combine(manager.ConfigDirectory, manager.App.DatabasePath), context.DatabasePath);
+            Assert.StartsWith(manager.ConfigDirectory, context.DatabasePath);
+        }
+
+        [Fact]
+        public void LoadingConfig_ShouldNotCopyAddressTableIntoStationState()
+        {
+            var context = CreateContext(out var manager);
+
+            Assert.True(manager.Plc.Addresses.Count > 1);
+            Assert.Equal((ushort)0, context.State.ProcessWord);
+            Assert.Equal(string.Empty, context.State.SerialNumber);
+            Assert.Equal(string.Empty, context.State.RunningStep);
+            Assert.False(context.State.Testing);
+            Assert.NotNull(context.GetAddress(AddressKeys.Command));
+        }
+
+        [Fact]
         public void FindMissingAddressKeys_ShouldReportOnlyMissing()
         {
             var manager = new ConfigManager(_tempDirectory);

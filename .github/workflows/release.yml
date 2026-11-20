@@ -71,6 +71,13 @@ jobs:
           if (Test-Path $zip) { Remove-Item $zip -Force }
           Compress-Archive -Path $out -DestinationPath $zip
 
+          $feedDir = Join-Path $env:RUNNER_TEMP "velopack-$version"
+          if (Test-Path $feedDir) { Remove-Item $feedDir -Recurse -Force }
+          & (Join-Path $env:GITHUB_WORKSPACE "scripts\pack-velopack.ps1") -Version $version -PublishDir $out -OutputDir $feedDir
+          $nupkg = Get-ChildItem -Path $feedDir -Filter "*-full.nupkg" | Select-Object -First 1
+          $feed = Join-Path $feedDir "releases.win.json"
+          if (-not $nupkg -or -not (Test-Path $feed)) { throw "Velopack package was not produced" }
+
           @(
             "由推送到 main 的构建自动生成，对应提交 $sha。"
             ""
@@ -78,7 +85,9 @@ jobs:
             "- 文件版本：$version.0"
             "- InformationalVersion：$stamp"
             ""
-            "附件是 dotnet publish 的输出压缩包，只挂在这个 Release 上，不写回仓库。"
+            "附件："
+            "- ``HostTemplate-$version.zip``：dotnet publish 的输出，只挂在这个 Release 上，不写回仓库。"
+            "- ``HostTemplate-$version-full.nupkg`` 和 ``releases.win.json``：Velopack 全量包。把 nupkg 丢进更新服务的 ``data/inbox``，或 ``PUT /api/packages/$version``。服务会自己生成每个版本的 feed，不依赖共享文件夹。"
           ) | Set-Content -Path $notes -Encoding utf8
 
           $nativePreference = $PSNativeCommandUseErrorActionPreference
@@ -88,11 +97,11 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $nativePreference
 
           if ($releaseExists) {
-            gh release upload $tag $zip --clobber
-            if ($LASTEXITCODE -ne 0) { throw "failed to upload $zip to $tag" }
+            gh release upload $tag $zip $nupkg.FullName $feed --clobber
+            if ($LASTEXITCODE -ne 0) { throw "failed to upload release assets to $tag" }
             gh release edit $tag --notes-file $notes
             if ($LASTEXITCODE -ne 0) { throw "failed to update notes for $tag" }
           } else {
-            gh release create $tag $zip --title "HostTemplate $version" --notes-file $notes --target $env:GITHUB_SHA
+            gh release create $tag $zip $nupkg.FullName $feed --title "HostTemplate $version" --notes-file $notes --target $env:GITHUB_SHA
             if ($LASTEXITCODE -ne 0) { throw "failed to create release $tag" }
           }

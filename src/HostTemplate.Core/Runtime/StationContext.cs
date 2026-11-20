@@ -116,10 +116,13 @@ namespace HostTemplate.Core.Runtime
             return missing;
         }
 
+        /// <summary>
+        /// 相对路径落在配置目录下，避免数据库跟着被替换的程序目录一起丢掉。
+        /// </summary>
         public string DatabasePath =>
             Path.IsPathRooted(App.DatabasePath)
                 ? App.DatabasePath
-                : Path.Combine(BaseDirectory, App.DatabasePath);
+                : Path.Combine(Config.ConfigDirectory, App.DatabasePath);
 
         public bool TryGetAddress(string key, out AddrOption option)
         {

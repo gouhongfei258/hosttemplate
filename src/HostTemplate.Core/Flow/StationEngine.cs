@@ -52,7 +52,7 @@ namespace HostTemplate.Core.Flow
     ///
     /// 不含任何具体业务。业务全部在 IStationStep 实现里。
     /// </summary>
-    public sealed class StationEngine : IDisposable
+    public sealed class StationEngine : IDisposable, IStationIdle
     {
         private readonly StationContext _context;
         private readonly Dictionary<ushort, IStationStep> _steps = new Dictionary<ushort, IStationStep>();
@@ -79,6 +79,7 @@ namespace HostTemplate.Core.Flow
         private bool _disposed;
         private DateTime _lastConnectAttempt = DateTime.MinValue;
         private bool[] _reserveBools = Array.Empty<bool>();
+        private int _stepInFlight;
 
         public StationEngine(StationContext context, IEnumerable<IStationStep> steps)
         {
@@ -119,6 +120,12 @@ namespace HostTemplate.Core.Flow
         }
 
         public bool IsRunning => _loopTask != null && !_loopTask.IsCompleted;
+
+        /// <summary>
+        /// 没有产品在制：流程字为等待进站，测试标志已清，也没有步骤正在执行。
+        /// 界面不要自己拼这个判断。
+        /// </summary>
+        public bool IsIdle => StationIdle.Evaluate(_context.State, Volatile.Read(ref _stepInFlight) > 0);
 
         public IReadOnlyDictionary<ushort, IStationStep> Steps => _steps;
 
@@ -227,6 +234,11 @@ namespace HostTemplate.Core.Flow
 
                     _context.State.ProcessWord = word;
                     _context.State.ProcessContent = ProcessWords.Describe(word);
+
+                    if (word == ProcessWords.Idle)
+                    {
+                        _context.State.Testing = false;
+                    }
 
                     if (!_hasHandled || word != _handledWord)
                     {
@@ -402,6 +414,7 @@ namespace HostTemplate.Core.Flow
             }
 
             var stopwatch = Stopwatch.StartNew();
+            Interlocked.Increment(ref _stepInFlight);
 
             try
             {
@@ -458,6 +471,7 @@ namespace HostTemplate.Core.Flow
             finally
             {
                 _context.State.RunningStep = string.Empty;
+                Interlocked.Decrement(ref _stepInFlight);
                 _stepGate.Release();
             }
         }

@@ -11,7 +11,9 @@
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.11" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="Velopack" Version="0.0.1298" />
     <PackageReference Include="xunit" Version="2.5.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
   </ItemGroup>
@@ -23,6 +25,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\HostTemplate.Core\HostTemplate.Core.csproj" />
     <ProjectReference Include="..\..\src\HostTemplate.Devices\HostTemplate.Devices.csproj" />
+    <ProjectReference Include="..\..\src\HostTemplate.UpdateService\HostTemplate.UpdateService.csproj" />
   </ItemGroup>
 
 </Project>

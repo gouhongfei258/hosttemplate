@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ApiConfig xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <BaseUrl>http://127.0.0.1:8080</BaseUrl>
+  <TimeoutMs>5000</TimeoutMs>
+  <RetryCount>3</RetryCount>
+  <RetryBackoffSeconds>1</RetryBackoffSeconds>
+  <Enabled>true</Enabled>
+  <Headers>
+    <HeaderItem>
+      <Name>appId</Name>
+      <Value>template</Value>
+    </HeaderItem>
+    <HeaderItem>
+      <Name>appKey</Name>
+      <Value>change-me</Value>
+    </HeaderItem>
+  </Headers>
+  <Endpoints>
+    <EndpointItem>
+      <Key>ApplySn</Key>
+      <Path>/api/ProcessStation/RequestSnNumber</Path>
+      <Method>POST</Method>
+    </EndpointItem>
+    <EndpointItem>
+      <Key>PassStation</Key>
+      <Path>/api/ProcessStation/PassStation</Path>
+      <Method>POST</Method>
+    </EndpointItem>
+    <EndpointItem>
+      <Key>UploadTestData</Key>
+      <Path>/api/TestData/UpLoad</Path>
+      <Method>POST</Method>
+    </EndpointItem>
+    <EndpointItem>
+      <Key>RegisterNg</Key>
+      <Path>/api/BadProduct/Register</Path>
+      <Method>POST</Method>
+    </EndpointItem>
+  </Endpoints>
+</ApiConfig>
