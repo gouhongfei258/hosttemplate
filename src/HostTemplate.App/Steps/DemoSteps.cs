@@ -35,6 +35,8 @@ namespace HostTemplate.App.Steps
 
         public async Task<StepResult> ExecuteAsync(StepContext context)
         {
+            // 示例页用可选的数据袋。新的一件从这里清空；别的页面不用这一句。
+            context.Live.BeginCycle();
             context.State.StartTime = DateTime.Now;
             context.State.Testing = true;
 
@@ -60,10 +62,14 @@ namespace HostTemplate.App.Steps
             if (context.App.SnLength > 0 && sn.Length != context.App.SnLength)
             {
                 context.State.SerialNumber = sn;
-                return StepResult.Ng(ReviewCode.NG_InStation, $"SN 长度不符：{sn.Length} != {context.App.SnLength}");
+                context.Live.RememberSerialNumber(sn);
+                var message = $"SN 长度不符：{sn.Length} != {context.App.SnLength}";
+                context.PublishVerdict(false, message);
+                return StepResult.Ng(ReviewCode.NG_InStation, message);
             }
 
             context.State.SerialNumber = sn;
+            context.Live.RememberSerialNumber(sn);
 
             // 这里是接 MES 的位置，示例只演示调用方式。
             // var response = await context.Api.PostAsync("ApplySn", new { LineCode = context.App.Line }, context.CancellationToken);
@@ -85,15 +91,18 @@ namespace HostTemplate.App.Steps
         {
             if (string.IsNullOrEmpty(context.State.SerialNumber))
             {
-                return StepResult.Ng(ReviewCode.NG_TestStart, "未读到 SN，拒绝开始测试");
+                const string message = "未读到 SN，拒绝开始测试";
+                context.PublishVerdict(false, message);
+                return StepResult.Ng(ReviewCode.NG_TestStart, message);
             }
 
             if (!context.Trace.Check(new[] { ProcessWords.InStation }, out var error))
             {
+                context.PublishVerdict(false, error);
                 return StepResult.Ng(ReviewCode.NG_TestStart, error);
             }
 
-            // 示例曲线：真实工站在采集过程中反复 PublishPoint，不必等测试结束再一次性给。
+            // 示例曲线，只喂给 DemoLiveView。别的实时页面不必调用。
             context.PublishPoint("示例电压", 0, 11.8);
             context.PublishPoint("示例电压", 1, 12.1);
 
@@ -175,10 +184,7 @@ namespace HostTemplate.App.Steps
                 ? $"测试用时 {(context.State.EndTime - context.State.StartTime).TotalMilliseconds:F0}ms"
                 : "示例判定为不良";
 
-            if (passed)
-            {
-                context.PublishVerdict(true, message);
-            }
+            context.PublishVerdict(passed, message);
 
             return passed
                 ? StepResult.Ok(ReviewCode.OK_TestFinish, message)
@@ -197,6 +203,7 @@ namespace HostTemplate.App.Steps
         {
             if (!context.Trace.Check(context.App.RequiredSteps, out var error))
             {
+                context.PublishVerdict(false, error);
                 return StepResult.Ng(ReviewCode.NG_OutStation, error);
             }
 

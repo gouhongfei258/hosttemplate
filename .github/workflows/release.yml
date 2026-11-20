@@ -1,7 +1,7 @@
 name: Release
 
-# 合并进默认分支（push 到 main）后打一版 Release。
-# 版本在构建时注入，不回写仓库。产物是构建输出，不发布 GitHub Release。
+# 合并进 main 后，在临时目录发布，并创建 GitHub Release。
+# 版本在构建时注入，不回写仓库，也不把安装包放进项目目录。
 
 on:
   push:
@@ -9,8 +9,7 @@ on:
       - main
 
 permissions:
-  contents: read
-  actions: write
+  contents: write
 
 jobs:
   release:
@@ -25,7 +24,7 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      - name: Test and build Release
+      - name: Test
         shell: pwsh
         run: |
           $sha = $env:GITHUB_SHA.Substring(0, 7)
@@ -33,27 +32,67 @@ jobs:
             "-p:VersionPatch=$env:GITHUB_RUN_NUMBER" `
             "-p:SourceRevisionId=$sha"
 
-      - name: Verify stamped version
+      - name: Publish and create GitHub Release
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          $stamp = "1.0.$env:GITHUB_RUN_NUMBER+" + $env:GITHUB_SHA.Substring(0, 7)
-          $exe = Resolve-Path "src/HostTemplate.App/bin/Release/net8.0-windows/HostTemplate.exe"
-          $dll = Resolve-Path "src/HostTemplate.App/bin/Release/net8.0-windows/HostTemplate.dll"
+          $ErrorActionPreference = "Stop"
+          $sha = $env:GITHUB_SHA.Substring(0, 7)
+          $version = "1.0.$env:GITHUB_RUN_NUMBER"
+          $tag = "v$version"
+          $out = Join-Path $env:RUNNER_TEMP "HostTemplate-$version"
+          $zip = Join-Path $env:RUNNER_TEMP "HostTemplate-$version.zip"
+          $notes = Join-Path $env:RUNNER_TEMP "release-notes.md"
+
+          if (Test-Path $out) { Remove-Item $out -Recurse -Force }
+          dotnet publish src/HostTemplate.App/HostTemplate.App.csproj -c Release -o $out `
+            "-p:VersionPatch=$env:GITHUB_RUN_NUMBER" `
+            "-p:SourceRevisionId=$sha"
+
+          $exe = Join-Path $out "HostTemplate.exe"
+          $dll = Join-Path $out "HostTemplate.dll"
+          if (-not (Test-Path $exe)) { throw "publish did not produce $exe" }
+
           $fileVersion = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($exe).FileVersion
-          $expectedFile = "1.0.$env:GITHUB_RUN_NUMBER.0"
+          $expectedFile = "$version.0"
           Write-Host "FileVersion=$fileVersion"
           if ($fileVersion -ne $expectedFile) {
             throw "FileVersion '$fileVersion' != '$expectedFile'"
           }
+
+          $stamp = "$version+$sha"
           $dllText = [System.Text.Encoding]::UTF8.GetString([System.IO.File]::ReadAllBytes($dll))
           if ($dllText.IndexOf($stamp) -lt 0) {
             throw "Assembly is missing InformationalVersion $stamp"
           }
           Write-Host "InformationalVersion=$stamp"
 
-      - name: Upload Release build
-        uses: actions/upload-artifact@v4
-        with:
-          name: HostTemplate-1.0.${{ github.run_number }}
-          path: src/HostTemplate.App/bin/Release/net8.0-windows/
-          if-no-files-found: error
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+          Compress-Archive -Path $out -DestinationPath $zip
+
+          @(
+            "由推送到 main 的构建自动生成，对应提交 $sha。"
+            ""
+            "- 版本：$version"
+            "- 文件版本：$version.0"
+            "- InformationalVersion：$stamp"
+            ""
+            "附件是 dotnet publish 的输出压缩包，只挂在这个 Release 上，不写回仓库。"
+          ) | Set-Content -Path $notes -Encoding utf8
+
+          $nativePreference = $PSNativeCommandUseErrorActionPreference
+          $PSNativeCommandUseErrorActionPreference = $false
+          gh release view $tag --json tagName *> $null
+          $releaseExists = $LASTEXITCODE -eq 0
+          $PSNativeCommandUseErrorActionPreference = $nativePreference
+
+          if ($releaseExists) {
+            gh release upload $tag $zip --clobber
+            if ($LASTEXITCODE -ne 0) { throw "failed to upload $zip to $tag" }
+            gh release edit $tag --notes-file $notes
+            if ($LASTEXITCODE -ne 0) { throw "failed to update notes for $tag" }
+          } else {
+            gh release create $tag $zip --title "HostTemplate $version" --notes-file $notes --target $env:GITHUB_SHA
+            if ($LASTEXITCODE -ne 0) { throw "failed to create release $tag" }
+          }

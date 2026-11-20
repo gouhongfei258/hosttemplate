@@ -4,13 +4,14 @@ using System.Windows.Forms;
 using HostTemplate.Core.Runtime;
 using Sunny.UI;
 
-namespace HostTemplate.App.Controls
+namespace HostTemplate.App.Steps
 {
     /// <summary>
-    /// 「实时数据」页的默认视图：产品结论 + 表格 + 曲线。
-    /// 没有行就藏表格，没有曲线就藏图。工站要换界面时，用自己的控件换掉它，不必改引擎。
+    /// 示例工站的「实时数据」整页，不是模板契约。
+    /// 大号 OK/NG、表格、曲线都只属于这个示例：没有行就藏表格，没有曲线就藏图。
+    /// 视觉标注、多画面组合或其他布局，在 Program.cs 里换成自己的控件即可，不必使用 CycleLiveData。
     /// </summary>
-    public sealed class DefaultLiveView : UserControl
+    public sealed class DemoLiveView : UserControl
     {
         private readonly CycleLiveData _live;
         private readonly Timer _timer;
@@ -23,7 +24,7 @@ namespace HostTemplate.App.Controls
         private readonly Font _resultFont;
         private int _dirty = 1;
 
-        public DefaultLiveView(CycleLiveData live)
+        public DemoLiveView(CycleLiveData live)
         {
             _live = live ?? throw new ArgumentNullException(nameof(live));
 

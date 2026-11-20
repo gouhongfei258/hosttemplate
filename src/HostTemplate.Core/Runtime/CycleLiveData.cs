@@ -97,9 +97,9 @@ namespace HostTemplate.Core.Runtime
     }
 
     /// <summary>
-    /// 当前节拍的实时数据。步骤写、界面读。
-    /// 只保留当前 SN / 当前周期，进站时由引擎清空。历史查询不在这里。
-    /// 没有 WinForms 依赖，工站可以换成自己的控件，不必改引擎。
+    /// 可选的当前周期数据袋，不是实时页面的形状。
+    /// 引擎不调用它。工站想用表格行和曲线点时自己写入，并在新的一件开始时调用 <see cref="BeginCycle"/>。
+    /// 页面可以是图像标注或任意组合，那种页面不必引用本类。
     /// </summary>
     public sealed class CycleLiveData
     {

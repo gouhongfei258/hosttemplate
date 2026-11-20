@@ -15,7 +15,7 @@ namespace HostTemplate.App
 {
     /// <summary>
     /// 监控主界面。只做展示与指令下发，业务全部在 StationEngine / IStationStep 里。
-    /// 「实时数据」页默认是表格加曲线，构造时可以换成工站自己的控件。
+    /// 「实时数据」页整页由构造时传入的控件决定，这里不假定它是表格、曲线还是图像。
     /// </summary>
     public partial class MainForm : Form
     {
@@ -30,7 +30,6 @@ namespace HostTemplate.App
 
         private int _tick;
         private bool _apiChecking;
-        private ProductVerdict _seenVerdict = ProductVerdict.None;
 
         /// <summary>窗口显示后自动开始监控（配合 --autostart 使用）。</summary>
         public bool AutoStart { get; set; }
@@ -38,18 +37,24 @@ namespace HostTemplate.App
         public MainForm(
             StationContext context,
             StationEngine engine,
+            Control realtimeView,
             Func<StationContext, IPlcClient> plcFactory = null,
-            Func<StationContext, IApiClient> apiFactory = null,
-            Func<CycleLiveData, Control> realtimeViewFactory = null)
+            Func<StationContext, IApiClient> apiFactory = null)
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _engine = engine ?? throw new ArgumentNullException(nameof(engine));
+            if (realtimeView == null)
+            {
+                throw new ArgumentNullException(nameof(realtimeView), "「实时数据」页由工站自己提供。");
+            }
+
             _plcFactory = plcFactory;
             _apiFactory = apiFactory;
             _versionText = ReadDisplayVersion();
 
             InitializeComponent();
-            MountRealtimeView(realtimeViewFactory);
+            realtimeView.Dock = DockStyle.Fill;
+            pageRealtime.Controls.Add(realtimeView);
 
             _logSink = new UiLogSink(rtbLog);
             _context.Logger.Written += (s, e) => _logSink.Enqueue(e);
@@ -57,7 +62,6 @@ namespace HostTemplate.App
             _engine.StatusChanged += OnEngineStatusChanged;
             _engine.StepExecuted += OnStepExecuted;
             _context.Alarms.Changed += OnAlarmChanged;
-            _context.Live.Changed += OnLiveChanged;
 
             _alarmTip = new ToolTip();
 
@@ -69,28 +73,6 @@ namespace HostTemplate.App
             RefreshState();
 
             _context.Logger.Info("界面已加载。");
-        }
-
-        /// <summary>
-        /// 把实时视图放进「实时数据」页。工厂返回 null 或未提供时用默认表格 + 曲线。
-        /// 自定义控件自己订阅 <see cref="CycleLiveData"/>，引擎不感知。
-        /// </summary>
-        private void MountRealtimeView(Func<CycleLiveData, Control> realtimeViewFactory)
-        {
-            Control view = null;
-
-            if (realtimeViewFactory != null)
-            {
-                view = realtimeViewFactory(_context.Live);
-            }
-
-            if (view == null)
-            {
-                view = new DefaultLiveView(_context.Live);
-            }
-
-            view.Dock = DockStyle.Fill;
-            pageRealtime.Controls.Add(view);
         }
 
         private void BindStaticInfo()
@@ -257,21 +239,6 @@ namespace HostTemplate.App
             });
         }
 
-        private void OnLiveChanged(object sender, EventArgs e)
-        {
-            var verdict = _context.Live.Snapshot().Verdict;
-            RunOnUi(() =>
-            {
-                var becameNg = verdict == ProductVerdict.Ng && _seenVerdict != ProductVerdict.Ng;
-                _seenVerdict = verdict;
-
-                if (becameNg)
-                {
-                    ShowRealtimeTab();
-                }
-            });
-        }
-
         private void ShowRealtimeTab()
         {
             if (tabMain.SelectedTab != pageRealtime)
@@ -343,6 +310,11 @@ namespace HostTemplate.App
         private void OnStepExecuted(object sender, StepExecutedEventArgs e)
         {
             _context.Logger.Debug($"[步骤] {e.Word} {e.StepName} {(e.Result?.Success == true ? "OK" : "NG")} {e.ElapsedMs}ms");
+
+            if (e.Result != null && !e.Result.Success)
+            {
+                RunOnUi(ShowRealtimeTab);
+            }
         }
 
         private async void BtnStart_Click(object sender, EventArgs e)
@@ -391,7 +363,6 @@ namespace HostTemplate.App
                 }
 
                 _context.Trace.Clear();
-                _context.Live.BeginCycle();
                 _context.State.ProcessWord = ProcessWords.Idle;
                 _context.State.ProcessContent = ProcessWords.Describe(ProcessWords.Idle);
                 _context.State.SerialNumber = string.Empty;
@@ -533,7 +504,6 @@ namespace HostTemplate.App
         {
             _refreshTimer.Stop();
             _context.Alarms.Changed -= OnAlarmChanged;
-            _context.Live.Changed -= OnLiveChanged;
 
             try
             {

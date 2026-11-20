@@ -36,7 +36,9 @@ namespace HostTemplate.Core.Flow
 
         public ProcessTrace Trace => Station.Trace;
 
-        /// <summary>当前周期实时数据。步骤只往这里推，不关心界面用什么控件画。</summary>
+        /// <summary>
+        /// 可选的当前周期数据袋。页面不读它也完全可以。
+        /// </summary>
         public CycleLiveData Live => Station.Live;
 
         public AppConfig App => Station.App;
@@ -95,7 +97,8 @@ namespace HostTemplate.Core.Flow
         }
 
         /// <summary>
-        /// 写入或更新当前周期的一行（项目 / 标准 / 实测 / 合格）。同名项目覆盖。
+        /// 可选：写入或更新当前周期的一行（项目 / 标准 / 实测 / 合格）。同名项目覆盖。
+        /// 实时页面不必是表格。
         /// </summary>
         public void PublishItem(string itemName, string standard, string value, bool passed)
         {
@@ -103,7 +106,7 @@ namespace HostTemplate.Core.Flow
         }
 
         /// <summary>
-        /// 给当前周期的一条曲线追加一个点。同名系列会累积，进站时由引擎清空。
+        /// 可选：给当前周期的一条曲线追加一个点。新的一件开始前由工站自己 <see cref="CycleLiveData.BeginCycle"/>。
         /// </summary>
         public void PublishPoint(string seriesName, double x, double y)
         {
@@ -111,8 +114,8 @@ namespace HostTemplate.Core.Flow
         }
 
         /// <summary>
-        /// 给出当前产品结论（大号 OK / NG）。本周期一旦 NG，后续 OK 不会盖掉。
-        /// 步骤漏调时，引擎仍会在失败结果上补一次 NG。
+        /// 可选：记下当前产品结论。本周期一旦 NG，后续 OK 不会盖掉。
+        /// 怎么画由工站自己的页面决定，引擎不补这一笔。
         /// </summary>
         public void PublishVerdict(bool passed, string reason)
         {

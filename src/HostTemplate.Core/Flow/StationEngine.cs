@@ -397,8 +397,6 @@ namespace HostTemplate.Core.Flow
                 if (word == ProcessWords.InStation)
                 {
                     _context.Trace.Clear();
-                    // 新的一件开始。上一件的表格、曲线和 OK/NG 留到这一刻，方便操作员看完。
-                    _context.Live.BeginCycle();
                 }
 
                 _context.State.RunningStep = step.Name;
@@ -411,11 +409,6 @@ namespace HostTemplate.Core.Flow
                 _context.Trace.Add(word);
                 _context.Alarms.Set($"步骤异常:{step.Name}", false);
 
-                if (!string.IsNullOrEmpty(_context.State.SerialNumber))
-                {
-                    _context.Live.RememberSerialNumber(_context.State.SerialNumber);
-                }
-
                 if (result != null)
                 {
                     WriteReview(result.Review);
@@ -427,8 +420,6 @@ namespace HostTemplate.Core.Flow
                     else
                     {
                         _context.State.NgCount++;
-                        // 产品 NG 和程序报警分开。步骤忘了调 PublishVerdict 时，这里仍能把 NG 亮出来。
-                        _context.Live.PublishVerdict(false, result.Message);
                     }
 
                     var level = result.Success ? "✔" : "✘";

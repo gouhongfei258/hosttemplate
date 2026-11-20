@@ -170,7 +170,12 @@ namespace HostTemplate.App
 
             var autoStart = args != null && Array.IndexOf(args, "--autostart") >= 0;
 
-            Application.Run(new MainForm(context, engine, CreatePlcClient, CreateApiClient) { AutoStart = autoStart });
+            // 「实时数据」整页在这里交给工站。DemoLiveView 只是能跑起来的示例。
+            var realtimeView = new DemoLiveView(context.Live);
+            Application.Run(new MainForm(context, engine, realtimeView, CreatePlcClient, CreateApiClient)
+            {
+                AutoStart = autoStart,
+            });
         }
 
         /// <summary>

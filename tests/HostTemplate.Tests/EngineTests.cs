@@ -99,65 +99,33 @@ namespace HostTemplate.Tests
         }
 
         [Fact]
-        public async Task Engine_ShouldResetLiveDataWhenInStationStarts()
+        public async Task Engine_ShouldLeaveRealtimeDataToTheStation()
         {
             var context = CreateContext();
             var fake = new FakePlcClient("MW200");
             context.PlcClient = fake;
-            context.State.SerialNumber = "OLD-SN";
-            context.Live.RememberSerialNumber("OLD-SN");
-            context.Live.PublishItem("旧项目", "1", "9", false);
+            context.Live.PublishItem("旧项目", "1", "9", true);
             context.Live.PublishPoint("旧曲线", 0, 1);
-            context.Live.PublishVerdict(false, "旧不良");
+            context.Live.PublishVerdict(true, "旧结论");
 
             var step = new RecordingStep(ProcessWords.InStation)
             {
-                BeforeComplete = ctx =>
-                {
-                    ctx.State.SerialNumber = "NEW-SN";
-                    ctx.PublishItem("电压", "11.5~12.5", "12.0", true);
-                },
+                ResultToReturn = StepResult.Ng(ReviewCode.NG_InStation, "长度不符"),
             };
 
             using (var engine = new StationEngine(context, new IStationStep[] { step }))
             {
                 await engine.StartAsync();
                 fake.SetWords("MW200", ProcessWords.InStation, 0);
-                Assert.True(await WaitUntil(() => step.Count > 0));
+                Assert.True(await WaitUntil(() => step.Count > 0 && context.State.NgCount == 1));
                 await engine.StopAsync();
             }
 
             var snapshot = context.Live.Snapshot();
-            Assert.Equal(ProductVerdict.None, snapshot.Verdict);
-            Assert.Equal("NEW-SN", snapshot.SerialNumber);
-            Assert.Single(snapshot.Rows);
-            Assert.Equal("电压", snapshot.Rows[0].ItemName);
-            Assert.Empty(snapshot.Series);
-        }
-
-        [Fact]
-        public async Task Engine_ShouldPublishProductNgWhenStepFails()
-        {
-            var context = CreateContext();
-            var fake = new FakePlcClient("MW200");
-            context.PlcClient = fake;
-
-            var step = new RecordingStep(ProcessWords.TestStart)
-            {
-                ResultToReturn = StepResult.Ng(ReviewCode.NG_TestStart, "未读到 SN"),
-            };
-
-            using (var engine = new StationEngine(context, new IStationStep[] { step }))
-            {
-                await engine.StartAsync();
-                fake.SetWords("MW200", ProcessWords.TestStart, 0);
-                Assert.True(await WaitUntil(() => context.Live.Snapshot().Verdict == ProductVerdict.Ng));
-                await engine.StopAsync();
-            }
-
-            var snapshot = context.Live.Snapshot();
-            Assert.Equal(ProductVerdict.Ng, snapshot.Verdict);
-            Assert.Equal("未读到 SN", snapshot.Reason);
+            Assert.Equal(ProductVerdict.Ok, snapshot.Verdict);
+            Assert.Equal("旧结论", snapshot.Reason);
+            Assert.Equal("旧项目", snapshot.Rows[0].ItemName);
+            Assert.Single(snapshot.Series);
             Assert.Equal(1, context.State.NgCount);
         }
 

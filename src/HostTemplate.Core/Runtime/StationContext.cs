@@ -59,7 +59,8 @@ namespace HostTemplate.Core.Runtime
         public ProcessTrace Trace { get; }
 
         /// <summary>
-        /// 当前节拍的实时数据。只保留这一件产品，历史查询不在这里。
+        /// 可选的当前周期数据袋。引擎不读写它，「实时数据」页也不必使用。
+        /// 工站若只要表格或曲线，可以自己往里面推；图像、标注、组合画面则完全不用它。
         /// </summary>
         public CycleLiveData Live { get; }
 
