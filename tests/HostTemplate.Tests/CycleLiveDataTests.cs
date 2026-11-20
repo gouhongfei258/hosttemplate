@@ -1,4 +1,4 @@
-using HostTemplate.Core.Runtime;
+using HostTemplate.Core.Runtime.Live;
 using Xunit;
 
 namespace HostTemplate.Tests

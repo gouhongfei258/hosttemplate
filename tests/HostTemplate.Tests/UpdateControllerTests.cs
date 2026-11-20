@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using HostTemplate.Contracts;
-using HostTemplate.Core.Runtime;
+using HostTemplate.Core.Runtime.State;
 using HostTemplate.Core.Updates;
 using Xunit;
 

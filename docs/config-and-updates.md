@@ -42,6 +42,12 @@ Velopack 负责打包、下载和替换程序。版本列表和「该工站现�
 
 ## 服务
 
-见 `src/HostTemplate.UpdateService/README.md`。GitHub Release 在 Windows 上额外打出 `*-full.nupkg`，把这个文件放进服务的 `data/inbox` 即可，不要把安装包提交进仓库。
+后端项目是 `HostTemplate.Backend`（以前叫 UpdateService）。怎么跑、目录和接口见 [src/HostTemplate.Backend/README.md](../src/HostTemplate.Backend/README.md)。GitHub Release 在 Windows 上额外打出 `*-full.nupkg`，把这个文件放进服务的 `data/inbox` 即可，不要把安装包提交进仓库。
 
-Linux 上的 `vpk` 只会打 AppImage，不能给 Windows 工控机用。打包脚本是 `scripts/pack-velopack.ps1`，由 `.github/workflows/release.yml` 在 `windows-latest` 上执行。
+Linux 上的 `vpk` 只会打 AppImage，不能给 Windows 工控机用。打包脚本是 `scripts/pack-velopack.ps1`，路径相对仓库根目录。CI 在 `windows-latest` 上这样调用，不提问：
+
+```powershell
+pwsh ./scripts/pack-velopack.ps1 -Version 1.0.42 -PublishDir $publishDir -OutputDir $feedDir -NonInteractive
+```
+
+`-PublishDir` 是 `-SourceDir` 的别名。本地交互式用法、只打包指定文件、以及不要把工站配置 xml 打进去，写在 [开发手册](开发手册.md) 的打包一节。

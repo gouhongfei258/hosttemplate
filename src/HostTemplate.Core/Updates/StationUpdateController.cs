@@ -2,7 +2,8 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using HostTemplate.Contracts;
-using HostTemplate.Core.Runtime;
+using HostTemplate.Core.Configuration.Loading;
+using HostTemplate.Core.Runtime.State;
 
 namespace HostTemplate.Core.Updates
 {
@@ -115,7 +116,7 @@ namespace HostTemplate.Core.Updates
                 return UpdateActionResult.Of(UpdateStatus.Failed, "下载远端配置失败：" + ex.Message);
             }
 
-            Configuration.RemoteConfigSyncResult applied;
+            Configuration.Loading.RemoteConfigSyncResult applied;
             try
             {
                 applied = RemoteConfigSyncApply(package, configDirectory);
@@ -360,9 +361,9 @@ namespace HostTemplate.Core.Updates
             return UpdateActionResult.Of(UpdateStatus.Applied, "正在安装版本 " + pending.Version + " 并重启。", pending.Version);
         }
 
-        private static Configuration.RemoteConfigSyncResult RemoteConfigSyncApply(ConfigPackage package, string configDirectory)
+        private static Configuration.Loading.RemoteConfigSyncResult RemoteConfigSyncApply(ConfigPackage package, string configDirectory)
         {
-            return Configuration.RemoteConfigSync.Apply(true, package, configDirectory);
+            return Configuration.Loading.RemoteConfigSync.Apply(true, package, configDirectory);
         }
 
         private UpdateActionResult EnsureConfigured()

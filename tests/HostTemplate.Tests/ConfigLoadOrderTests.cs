@@ -5,6 +5,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using HostTemplate.Contracts;
 using HostTemplate.Core.Configuration;
+using HostTemplate.Core.Configuration.Loading;
+using HostTemplate.Core.Configuration.Store;
 using HostTemplate.Core.Updates;
 using Xunit;
 

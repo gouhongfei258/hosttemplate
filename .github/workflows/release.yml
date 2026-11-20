@@ -73,7 +73,7 @@ jobs:
 
           $feedDir = Join-Path $env:RUNNER_TEMP "velopack-$version"
           if (Test-Path $feedDir) { Remove-Item $feedDir -Recurse -Force }
-          & (Join-Path $env:GITHUB_WORKSPACE "scripts\pack-velopack.ps1") -Version $version -PublishDir $out -OutputDir $feedDir
+          & (Join-Path $env:GITHUB_WORKSPACE "scripts\pack-velopack.ps1") -Version $version -PublishDir $out -OutputDir $feedDir -NonInteractive
           $nupkg = Get-ChildItem -Path $feedDir -Filter "*-full.nupkg" | Select-Object -First 1
           $feed = Join-Path $feedDir "releases.win.json"
           if (-not $nupkg -or -not (Test-Path $feed)) { throw "Velopack package was not produced" }

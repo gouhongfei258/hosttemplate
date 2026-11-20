@@ -3,7 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using HostTemplate.Core.Configuration;
 using HostTemplate.Core.Diagnostics;
-using HostTemplate.Core.Runtime;
+using HostTemplate.Core.Runtime.Live;
 using HostTemplate.Devices.Api;
 using Xunit;
 
