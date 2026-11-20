@@ -16,6 +16,8 @@ namespace HostTemplate.App
 
         private void InitializeComponent()
         {
+            this.panelLogo = new System.Windows.Forms.Panel();
+            this.picLogo = new System.Windows.Forms.PictureBox();
             this.panelTop = new System.Windows.Forms.Panel();
             this.panelInfo = new System.Windows.Forms.Panel();
             this.panelAlarm = new System.Windows.Forms.Panel();
@@ -48,6 +50,8 @@ namespace HostTemplate.App
             this.lblHint = new System.Windows.Forms.Label();
             this.lblVersion = new System.Windows.Forms.Label();
             this.btnTheme = new Sunny.UI.UIButton();
+            this.panelLogo.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.picLogo)).BeginInit();
             this.panelTop.SuspendLayout();
             this.panelInfo.SuspendLayout();
             this.panelAlarm.SuspendLayout();
@@ -55,6 +59,28 @@ namespace HostTemplate.App
             this.pageLog.SuspendLayout();
             this.panelBottom.SuspendLayout();
             this.SuspendLayout();
+            //
+            // panelLogo
+            //
+            this.panelLogo.BackColor = System.Drawing.Color.White;
+            this.panelLogo.Controls.Add(this.picLogo);
+            this.panelLogo.Dock = System.Windows.Forms.DockStyle.Top;
+            this.panelLogo.Location = new System.Drawing.Point(0, 0);
+            this.panelLogo.Name = "panelLogo";
+            this.panelLogo.Padding = new System.Windows.Forms.Padding(16, 8, 16, 8);
+            this.panelLogo.Size = new System.Drawing.Size(1184, 88);
+            this.panelLogo.TabIndex = 5;
+            //
+            // picLogo
+            //
+            this.picLogo.BackColor = System.Drawing.Color.White;
+            this.picLogo.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.picLogo.Location = new System.Drawing.Point(16, 8);
+            this.picLogo.Name = "picLogo";
+            this.picLogo.Size = new System.Drawing.Size(1152, 72);
+            this.picLogo.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
+            this.picLogo.TabIndex = 0;
+            this.picLogo.TabStop = false;
             //
             // panelTop
             //
@@ -483,17 +509,20 @@ namespace HostTemplate.App
             //
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.BackColor = System.Drawing.Color.FromArgb(11, 18, 32);
-            this.ClientSize = new System.Drawing.Size(1184, 785);
+            this.ClientSize = new System.Drawing.Size(1184, 873);
             this.Controls.Add(this.tabMain);
             this.Controls.Add(this.panelBottom);
             this.Controls.Add(this.panelAlarm);
             this.Controls.Add(this.panelInfo);
             this.Controls.Add(this.panelTop);
+            this.Controls.Add(this.panelLogo);
             this.Font = new System.Drawing.Font("Microsoft YaHei UI", 9F);
-            this.MinimumSize = new System.Drawing.Size(1100, 760);
+            this.MinimumSize = new System.Drawing.Size(1100, 848);
             this.Name = "MainForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "上位机模板 · 监控";
+            this.panelLogo.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.picLogo)).EndInit();
             this.panelTop.ResumeLayout(false);
             this.panelInfo.ResumeLayout(false);
             this.panelAlarm.ResumeLayout(false);
@@ -503,6 +532,8 @@ namespace HostTemplate.App
             this.ResumeLayout(false);
         }
 
+        private System.Windows.Forms.Panel panelLogo;
+        private System.Windows.Forms.PictureBox picLogo;
         private System.Windows.Forms.Panel panelTop;
         private System.Windows.Forms.Panel panelInfo;
         private System.Windows.Forms.Panel panelAlarm;

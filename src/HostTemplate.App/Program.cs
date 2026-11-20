@@ -16,6 +16,7 @@ using HostTemplate.Core.Configuration.Store;
 using HostTemplate.Core.Data;
 using HostTemplate.Core.Diagnostics;
 using HostTemplate.Core.Flow.Engine;
+using HostTemplate.Core.Runtime.Startup;
 using HostTemplate.Core.Runtime.State;
 using HostTemplate.Core.Security;
 using HostTemplate.Core.Updates;
@@ -230,10 +231,81 @@ namespace HostTemplate.App
             // 其它类型在这里登记，页面可以是任意控件：
             // LiveViewCatalog.Register("扭矩", ctx => new TorqueLiveView(ctx));
             var realtimeView = LiveViewCatalog.Create(context);
-            Application.Run(new MainForm(context, engine, realtimeView, CreatePlcClient, CreateApiClient, updates, () => LiveViewCatalog.Create(context))
+            var mainForm = new MainForm(context, engine, realtimeView, CreatePlcClient, CreateApiClient, updates, () => LiveViewCatalog.Create(context))
             {
                 AutoStart = autoStart,
-            });
+            };
+            var shortcuts = ApplyTaskbarShortcut(logger);
+            if (shortcuts.ShouldPin)
+            {
+                PinTaskbarShortcutWhenShown(mainForm, logger, shortcuts.PinPath);
+            }
+
+            Application.Run(mainForm);
+        }
+
+        private static ShortcutEnsureResult ApplyTaskbarShortcut(Log4NetLogger logger)
+        {
+            try
+            {
+                var result = WindowsTaskbarShortcut.Apply();
+                if (!result.Success)
+                {
+                    logger.Warn("任务栏快捷方式没有创建：" + result.Error);
+                    return result;
+                }
+
+                if (result.Skipped)
+                {
+                    logger.Info(string.IsNullOrWhiteSpace(result.Detail)
+                        ? "任务栏快捷方式已存在，跳过。"
+                        : "任务栏快捷方式已存在，跳过。" + result.Detail);
+                    return result;
+                }
+
+                logger.Info("任务栏快捷方式已写入：" + result.Target);
+                if (!string.IsNullOrWhiteSpace(result.Detail))
+                {
+                    logger.Info(result.Detail);
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                logger.Warn("创建任务栏快捷方式失败：" + ex.Message);
+                return ShortcutEnsureResult.Fail(ex.Message);
+            }
+        }
+
+        private static void PinTaskbarShortcutWhenShown(Form form, Log4NetLogger logger, string shortcutPath)
+        {
+            if (form == null || string.IsNullOrWhiteSpace(shortcutPath))
+            {
+                return;
+            }
+
+            void OnShown(object sender, EventArgs e)
+            {
+                form.Shown -= OnShown;
+
+                try
+                {
+                    if (WindowsTaskbarShortcut.TryPin(shortcutPath))
+                    {
+                        logger.Info("已请求把快捷方式钉到任务栏：" + shortcutPath);
+                        return;
+                    }
+
+                    logger.Info(WindowsTaskbarShortcut.PinLimitation + " 系统版本 " + Environment.OSVersion.Version + "。");
+                }
+                catch (Exception ex)
+                {
+                    logger.Warn("钉住任务栏失败，程序继续运行：" + ex.Message);
+                }
+            }
+
+            form.Shown += OnShown;
         }
 
         private static void ApplyWindowsStartup(Log4NetLogger logger, bool enabled)

@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using HostTemplate.App.Controls;
 using HostTemplate.App.Forms;
+using HostTemplate.App.Startup;
 using HostTemplate.Core.Runtime.Startup;
 using HostTemplate.Contracts;
 using HostTemplate.Core.Abstractions;
@@ -73,6 +74,12 @@ namespace HostTemplate.App
             _versionText = ReadDisplayVersion();
 
             InitializeComponent();
+            if (!ProductLogo.TryApply(picLogo))
+            {
+                panelLogo.Visible = false;
+            }
+
+            WindowIcon.TryApply(this);
             _mesOnColor = lightApi.ActiveColor;
             _alarmTip = new ToolTip();
             _alarmTip.SetToolTip(btnKeyboard, "打开 Windows 屏幕键盘");
@@ -315,6 +322,9 @@ namespace HostTemplate.App
             _theme = theme ?? MainTheme.Night;
 
             BackColor = _theme.WindowBack;
+            // 产品标志是白底横幅，日间和夜间都留白底。
+            panelLogo.BackColor = System.Drawing.Color.White;
+            picLogo.BackColor = System.Drawing.Color.White;
             panelTop.BackColor = _theme.BarBack;
             panelInfo.BackColor = _theme.StripBack;
             panelBottom.BackColor = _theme.BarBack;
