@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using HostTemplate.Core.Configuration;
+using HostTemplate.Core.Configuration.Store;
 
 namespace HostTemplate.Core.Security
 {

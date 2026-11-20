@@ -27,7 +27,7 @@ if ($Title -eq "") { $Title = $Name }
 
 Write-Host "==> 替换命名空间：HostTemplate.* -> $Name.*" -ForegroundColor Cyan
 
-$textFiles = Get-ChildItem -Recurse -Include *.cs, *.csproj, *.sln, *.md, *.config, *.manifest |
+$textFiles = Get-ChildItem -Recurse -Include *.cs, *.csproj, *.sln, *.md, *.config, *.manifest, *.ps1, *.yml, *.json |
     Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' }
 
 foreach ($file in $textFiles) {

@@ -17,7 +17,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HostTemplate.Tests", "tests
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HostTemplate.Contracts", "src\HostTemplate.Contracts\HostTemplate.Contracts.csproj", "{9C7F7F61-32D2-45A4-9C8B-F3DFB30E6C24}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HostTemplate.UpdateService", "src\HostTemplate.UpdateService\HostTemplate.UpdateService.csproj", "{86C33E07-25CE-4D72-9C42-62DDB9680457}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HostTemplate.Backend", "src\HostTemplate.Backend\HostTemplate.Backend.csproj", "{86C33E07-25CE-4D72-9C42-62DDB9680457}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

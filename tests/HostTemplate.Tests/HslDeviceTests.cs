@@ -2,7 +2,10 @@ using System;
 using System.Linq;
 using HostTemplate.Core.Configuration;
 using HostTemplate.Devices.Hsl;
-using HostTemplate.Devices.Plc;
+using HostTemplate.Devices.Plc.Melsec;
+using HostTemplate.Devices.Plc.Modbus;
+using HostTemplate.Devices.Plc.Omron;
+using HostTemplate.Devices.Plc.Siemens;
 using Xunit;
 
 namespace HostTemplate.Tests

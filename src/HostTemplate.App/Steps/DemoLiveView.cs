@@ -2,7 +2,7 @@ using System;
 using System.Drawing;
 using System.Windows.Forms;
 using HostTemplate.App.Controls;
-using HostTemplate.Core.Runtime;
+using HostTemplate.Core.Runtime.Live;
 using Sunny.UI;
 
 namespace HostTemplate.App.Steps

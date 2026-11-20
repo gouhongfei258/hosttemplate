@@ -3,7 +3,7 @@ using System.ComponentModel;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
-using HostTemplate.Core.Runtime;
+using HostTemplate.Core.Runtime.State;
 using HostTemplate.Core.Security;
 
 namespace HostTemplate.App.Forms

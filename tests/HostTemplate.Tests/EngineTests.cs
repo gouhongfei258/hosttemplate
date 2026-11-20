@@ -6,9 +6,11 @@ using System.Threading.Tasks;
 using HostTemplate.Core.Abstractions;
 using HostTemplate.Core.Configuration;
 using HostTemplate.Core.Diagnostics;
-using HostTemplate.Core.Flow;
-using HostTemplate.Core.Runtime;
-using HostTemplate.Devices.Plc;
+using HostTemplate.Core.Flow.Engine;
+using HostTemplate.Core.Flow.Process;
+using HostTemplate.Core.Runtime.Live;
+using HostTemplate.Core.Runtime.State;
+using HostTemplate.Devices.Plc.Simulation;
 using Xunit;
 
 namespace HostTemplate.Tests

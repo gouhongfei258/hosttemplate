@@ -1,7 +1,10 @@
 using System;
 using HostTemplate.Core.Abstractions;
 using HostTemplate.Core.Configuration;
-using HostTemplate.Devices.Plc;
+using HostTemplate.Devices.Plc.Melsec;
+using HostTemplate.Devices.Plc.Modbus;
+using HostTemplate.Devices.Plc.Omron;
+using HostTemplate.Devices.Plc.Siemens;
 
 namespace HostTemplate.Devices.Hsl
 {

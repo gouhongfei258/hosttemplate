@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using HostTemplate.Contracts;
 using HostTemplate.Core.Abstractions;
+using HostTemplate.Core.Configuration.Store;
 
 namespace HostTemplate.Core.Configuration
 {

@@ -9,7 +9,8 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using HostTemplate.Core.Abstractions;
 using HostTemplate.Core.Configuration;
-using HostTemplate.Core.Runtime;
+using HostTemplate.Core.Configuration.Store;
+using HostTemplate.Core.Runtime.State;
 using HostTemplate.Devices.Hsl;
 
 namespace HostTemplate.App.Forms

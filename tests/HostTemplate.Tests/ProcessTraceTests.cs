@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using HostTemplate.Core.Flow;
+using HostTemplate.Core.Flow.Process;
 using Xunit;
 
 namespace HostTemplate.Tests

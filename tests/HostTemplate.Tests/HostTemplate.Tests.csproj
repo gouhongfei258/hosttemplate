@@ -25,7 +25,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\HostTemplate.Core\HostTemplate.Core.csproj" />
     <ProjectReference Include="..\..\src\HostTemplate.Devices\HostTemplate.Devices.csproj" />
-    <ProjectReference Include="..\..\src\HostTemplate.UpdateService\HostTemplate.UpdateService.csproj" />
+    <ProjectReference Include="..\..\src\HostTemplate.Backend\HostTemplate.Backend.csproj" />
   </ItemGroup>
 
 </Project>

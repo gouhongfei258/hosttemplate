@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using HostTemplate.Core.Configuration;
+using HostTemplate.Core.Configuration.Store;
 using Xunit;
 
 namespace HostTemplate.Tests

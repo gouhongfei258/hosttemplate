@@ -16,7 +16,7 @@ namespace HostTemplate.Devices.Hsl
     ///   基类：连接守卫 + 串行锁 + 全类型读写（同步），返回 bool + out，不抛异常；
     ///   子类：只负责 new 出具体协议对象、给出 ConnectAction / CloseAction。
     ///
-    /// 新增一个品牌的 PLC 只要 20 行（见 <see cref="ModbusTcpClient"/>）。
+    /// 新增一个品牌的 PLC 只要 20 行（见 <see cref="HostTemplate.Devices.Plc.Modbus.ModbusTcpClient"/>）。
     ///
     /// 设计取舍：
     ///   1. 全部返回 bool + out error，和 <see cref="IPlcClient"/> 一致，主循环不需要 try/catch；
