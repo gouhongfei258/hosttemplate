@@ -42,8 +42,10 @@ namespace HostTemplate.Core.Runtime
 
         public bool Testing { get; set; }
 
+        /// <summary>良品件数。一件产品记一次，不是每个成功步骤加一。</summary>
         public long CycleCount { get; set; }
 
+        /// <summary>不良件数。一件产品记一次，不是每个失败步骤加一。</summary>
         public long NgCount { get; set; }
 
         public StationState Snapshot()
